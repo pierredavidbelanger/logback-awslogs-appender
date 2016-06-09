@@ -42,6 +42,11 @@ The simplest config that actually send logs to CloudWatch (see [More configurati
 </configuration>
 ```
 
+With every possible defaults:
+- The Layout will default to '[PRIORITY] Message'.
+- The Log Group Name will default to `AwsLogsAppender`.
+- The Log Stream Name will default to a timestamp formated with `yyyyMMdd'T'HHmmss`.
+
 `AwsLogsAppender` will search for AWS Credentials using the [DefaultAWSCredentialsProviderChain](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/auth/DefaultAWSCredentialsProviderChain.html).
 
 The foud Credentials must at least have this [Role Policy](http://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_manage.html):
@@ -62,10 +67,6 @@ The foud Credentials must at least have this [Role Policy](http://docs.aws.amazo
 }
 ```
 
-The Log Group Name will default to `AwsLogsAppender` and the Log Stream Name will default to a timestamp formated with `yyyyMMdd'T'HHmmss`.
-
-The Layout will default to '[PRIORITY] Message'.
-
 ### Code
 
 As usual with [SLF4J](http://www.slf4j.org/):
@@ -73,10 +74,10 @@ As usual with [SLF4J](http://www.slf4j.org/):
 ```java
 // get a logger
 org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MyClass.class);
+
+// log
 logger.info("HelloWorld");
 ```
-
-This will send the string `[INFO] HelloWorld` into the above Group/Stream of CloudWatch Logs.
 
 ## More configurations
 
@@ -126,3 +127,5 @@ A real life `logback.xml` would probably look like this:
 
 </configuration>
 ```
+
+See [The logback manual - Chapter 3: Logback configuration](http://logback.qos.ch/manual/configuration.html) for more config options.
