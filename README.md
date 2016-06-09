@@ -1,6 +1,6 @@
 # Logback AWSLogs appender
 
-An [Amazon Web Services](https://aws.amazon.com) [Logs](http://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/Welcome.html) [appender](http://logback.qos.ch/manual/appenders.html) for [Logback](http://logback.qos.ch/).
+An [Amazon Web Services](https://aws.amazon.com) [CloudWatch Logs](http://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/Welcome.html) [appender](http://logback.qos.ch/manual/appenders.html) for [Logback](http://logback.qos.ch/).
 
 ## Quick start
 
@@ -43,13 +43,13 @@ The simplest config that actually send logs to CloudWatch (see [More configurati
 ```
 
 With every possible defaults:
-- The Layout will default to '[PRIORITY] Message'.
+- The Layout will default to [EchoLayout](http://logback.qos.ch/apidocs/ch/qos/logback/core/layout/EchoLayout.html).
 - The Log Group Name will default to `AwsLogsAppender`.
 - The Log Stream Name will default to a timestamp formated with `yyyyMMdd'T'HHmmss`.
 
 `AwsLogsAppender` will search for AWS Credentials using the [DefaultAWSCredentialsProviderChain](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/auth/DefaultAWSCredentialsProviderChain.html).
 
-The foud Credentials must at least have this [Role Policy](http://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_manage.html):
+The foud Credentials must have at least this [Role Policy](http://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_manage.html):
 
 ```json
 {
