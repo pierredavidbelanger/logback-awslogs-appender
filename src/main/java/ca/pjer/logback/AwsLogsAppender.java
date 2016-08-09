@@ -8,6 +8,7 @@ import ch.qos.logback.core.status.ErrorStatus;
 import ch.qos.logback.core.status.InfoStatus;
 import ch.qos.logback.core.status.WarnStatus;
 import com.amazonaws.AmazonClientException;
+import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.services.logs.AWSLogs;
 import com.amazonaws.services.logs.AWSLogsClient;
 import com.amazonaws.services.logs.model.*;
@@ -21,6 +22,7 @@ public class AwsLogsAppender extends AppenderBase<ILoggingEvent> {
 
     private String logGroupName;
     private String logStreamName;
+    private String logRegion;
 
     private AWSLogs awsLogs;
     private String sequenceToken;
@@ -49,6 +51,14 @@ public class AwsLogsAppender extends AppenderBase<ILoggingEvent> {
         this.logStreamName = logStreamName;
     }
 
+    public String getLogRegion() {
+        return logRegion;
+    }
+    
+    public void setLogRegion(String logRegion) {
+        this.logRegion = logRegion;
+    }
+    
     @Override
     public synchronized void start() {
         if (!isStarted()) {
@@ -67,6 +77,9 @@ public class AwsLogsAppender extends AppenderBase<ILoggingEvent> {
             try {
                 if (this.awsLogs == null) {
                     AWSLogs awsLogs = new AWSLogsClient();
+                    if (logRegion != null) {
+                        awsLogs.setRegion(RegionUtils.getRegion(logRegion));
+                    }
                     try {
                         awsLogs.createLogGroup(new CreateLogGroupRequest().withLogGroupName(logGroupName));
                     } catch (ResourceAlreadyExistsException e) {
