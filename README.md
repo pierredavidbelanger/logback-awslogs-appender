@@ -114,10 +114,10 @@ A real life `logback.xml` would probably look like this (when all options are sp
         <!-- So even when running inside an AWS instance in us-west-1, logs will go to us-west-2 -->
         <logRegion>us-west-2</logRegion>
         <!-- Maximum size of the queue -->
-        <!-- will flush when full even if still in quiet time (see maxFlushTimeMillis) -->
+        <!-- will flush when full, even if still in quiet time (see maxFlushTimeMillis) -->
         <maxQueueSize>256</maxQueueSize>
         <!-- Maximum quiet time in millisecond -->
-        <!-- will flush when is queue is not full (see maxQueueSize) -->
+        <!-- will flush when met, even if queue is not full (see maxQueueSize) -->
         <maxFlushTimeMillis>mystream-${date}</maxFlushTimeMillis>
     </appender>
 
