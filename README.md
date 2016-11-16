@@ -18,7 +18,7 @@ An [Amazon Web Services](https://aws.amazon.com) [CloudWatch Logs](http://docs.a
         <dependency>
             <groupId>ca.pjer</groupId>
             <artifactId>logback-awslogs-appender</artifactId>
-            <version>0.1.0</version>
+            <version>0.2.0-SNAPSHOT</version>
         </dependency>
         ...
     </dependencies>
@@ -28,7 +28,7 @@ An [Amazon Web Services](https://aws.amazon.com) [CloudWatch Logs](http://docs.a
 
 ### `logback.xml`
 
-The simplest config that actually send logs to CloudWatch (see [More configurations section](#more-configurations) for a real life example):
+The simplest config that actually (synchronously) send logs to CloudWatch (see [More configurations section](#more-configurations) for a real life example):
 
 ```xml
 <configuration>
@@ -46,6 +46,8 @@ With every possible defaults:
 - The Layout will default to [EchoLayout](http://logback.qos.ch/apidocs/ch/qos/logback/core/layout/EchoLayout.html).
 - The Log Group Name will default to `AwsLogsAppender`.
 - The Log Stream Name will default to a timestamp formated with `yyyyMMdd'T'HHmmss`.
+- The AWS Region will default to the AWS SDK default region (`us-east-1`) or the current instance region.
+- The `maxFlushTimeMillis` will default to `0`, so appender is in synchronous mode.
 
 `AwsLogsAppender` will search for AWS Credentials using the [DefaultAWSCredentialsProviderChain](http://docs.aws.amazon.com/AWSJavaSDK/latest/javadoc/com/amazonaws/auth/DefaultAWSCredentialsProviderChain.html).
 
@@ -81,16 +83,21 @@ logger.info("HelloWorld");
 
 ## More configurations
 
-A real life `logback.xml` would probably look like this:
+A real life `logback.xml` would probably look like this (when all options are specified):
 
 ```xml
 <configuration packagingData="true">
 
+    <!-- Register the shutdown hook to allow logback to cleanly stop appenders -->
+    <!-- this is strongly recommend when using AwsLogsAppender in async mode, -->
+    <!-- to allow the queue to flush on exit -->
+    <shutdownHook class="ch.qos.logback.core.hook.DelayingShutdownHook"/>
+
     <!-- Timestamp used into the Log Stream Name -->
     <timestamp key="date" datePattern="yyyyMMdd"/>
 
-    <!-- The actual AwsLogsAppender (synchronous) -->
-    <appender name="AWS_LOGS" class="ca.pjer.logback.AwsLogsAppender">
+    <!-- The actual AwsLogsAppender (asynchronous mode because of maxFlushTimeMillis > 0) -->
+    <appender name="ASYNC_AWS_LOGS" class="ca.pjer.logback.AwsLogsAppender">
         <!-- Send only WARN and above -->
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>WARN</level>
@@ -103,11 +110,15 @@ A real life `logback.xml` would probably look like this:
         <logGroupName>/com/acme/myapp</logGroupName>
         <!-- Timestamped Log Stream Name -->
         <logStreamName>mystream-${date}</logStreamName>
-    </appender>
-
-    <!-- AsyncAppender that forward to AwsLogsAppender -->
-    <appender name="ASYNC_AWS_LOGS" class="ch.qos.logback.classic.AsyncAppender">
-        <appender-ref ref="AWS_LOGS"/>
+        <!-- Hardcoded AWS region -->
+        <!-- So even when running inside an AWS instance in us-west-1, logs will go to us-west-2 -->
+        <logRegion>us-west-2</logRegion>
+        <!-- Maximum size of the queue -->
+        <!-- will flush when full even if still in quiet time (see maxFlushTimeMillis) -->
+        <maxQueueSize>256</maxQueueSize>
+        <!-- Maximum quiet time in millisecond -->
+        <!-- will flush when is queue is not full (see maxQueueSize) -->
+        <maxFlushTimeMillis>mystream-${date}</maxFlushTimeMillis>
     </appender>
 
     <!-- A console output -->
