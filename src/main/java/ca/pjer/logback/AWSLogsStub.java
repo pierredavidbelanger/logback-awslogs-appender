@@ -5,9 +5,18 @@ import com.amazonaws.services.logs.AWSLogs;
 import com.amazonaws.services.logs.AWSLogsClient;
 import com.amazonaws.services.logs.model.*;
 
-import java.util.Collection;
+import java.util.*;
 
 class AWSLogsStub {
+
+    private final Comparator<InputLogEvent> inputLogEventByTimestampComparator = new Comparator<InputLogEvent>() {
+
+        @Override
+        public int compare(InputLogEvent o1, InputLogEvent o2) {
+
+            return o1.getTimestamp().compareTo(o2.getTimestamp());
+        }
+    };
 
     private final String logGroupName;
     private final String logStreamName;
@@ -50,6 +59,11 @@ class AWSLogsStub {
 
     public synchronized void logEvents(Collection<InputLogEvent> events) {
         try {
+            if (events.size() > 1) {
+                List<InputLogEvent> sortedEvent = new ArrayList<InputLogEvent>(events);
+                Collections.sort(sortedEvent, inputLogEventByTimestampComparator);
+                events = sortedEvent;
+            }
             PutLogEventsRequest request = new PutLogEventsRequest()
                     .withLogGroupName(logGroupName)
                     .withLogStreamName(logStreamName)
