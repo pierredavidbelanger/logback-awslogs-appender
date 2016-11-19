@@ -18,7 +18,7 @@ An [Amazon Web Services](https://aws.amazon.com) [CloudWatch Logs](http://docs.a
         <dependency>
             <groupId>ca.pjer</groupId>
             <artifactId>logback-awslogs-appender</artifactId>
-            <version>0.2.1-SNAPSHOT</version>
+            <version>0.2.2-SNAPSHOT</version>
         </dependency>
         ...
     </dependencies>
