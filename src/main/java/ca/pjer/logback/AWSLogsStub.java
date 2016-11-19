@@ -5,18 +5,9 @@ import com.amazonaws.services.logs.AWSLogs;
 import com.amazonaws.services.logs.AWSLogsClient;
 import com.amazonaws.services.logs.model.*;
 
-import java.util.*;
+import java.util.Collection;
 
 class AWSLogsStub {
-
-    private final Comparator<InputLogEvent> inputLogEventByTimestampComparator = new Comparator<InputLogEvent>() {
-
-        @Override
-        public int compare(InputLogEvent o1, InputLogEvent o2) {
-
-            return o1.getTimestamp().compareTo(o2.getTimestamp());
-        }
-    };
 
     private final String logGroupName;
     private final String logStreamName;
@@ -36,7 +27,7 @@ class AWSLogsStub {
         this.awsLogs = awsLogs;
     }
 
-    public synchronized void start() {
+    public synchronized AWSLogsStub start() {
         try {
             awsLogs.createLogGroup(new CreateLogGroupRequest().withLogGroupName(logGroupName));
         } catch (ResourceAlreadyExistsException e) {
@@ -47,23 +38,20 @@ class AWSLogsStub {
         } catch (ResourceAlreadyExistsException e) {
             // ignore
         }
+        return this;
     }
 
-    public synchronized void stop() {
+    public synchronized AWSLogsStub stop() {
         try {
             awsLogs.shutdown();
         } catch (Exception e) {
             // ignore
         }
+        return this;
     }
 
-    public synchronized void logEvents(Collection<InputLogEvent> events) {
+    public synchronized AWSLogsStub logEvents(Collection<InputLogEvent> events) {
         try {
-            if (events.size() > 1) {
-                List<InputLogEvent> sortedEvent = new ArrayList<InputLogEvent>(events);
-                Collections.sort(sortedEvent, inputLogEventByTimestampComparator);
-                events = sortedEvent;
-            }
             PutLogEventsRequest request = new PutLogEventsRequest()
                     .withLogGroupName(logGroupName)
                     .withLogStreamName(logStreamName)
@@ -77,5 +65,6 @@ class AWSLogsStub {
             sequenceToken = e.getExpectedSequenceToken();
             logEvents(events);
         }
+        return this;
     }
 }

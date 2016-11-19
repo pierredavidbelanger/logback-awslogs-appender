@@ -2,8 +2,9 @@ package ca.pjer.logback;
 
 import com.amazonaws.services.logs.model.InputLogEvent;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Comparator;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 class AsyncWorker extends Worker implements Runnable {
@@ -12,7 +13,7 @@ class AsyncWorker extends Worker implements Runnable {
     private final int maxQueueSize;
     private final long maxFlushTimeMillis;
     private final AtomicBoolean started;
-    private final List<InputLogEvent> queue;
+    private final SortedSet<InputLogEvent> queue;
 
     private Thread thread;
 
@@ -22,7 +23,17 @@ class AsyncWorker extends Worker implements Runnable {
         this.maxQueueSize = maxQueueSize;
         this.maxFlushTimeMillis = maxFlushTimeMillis;
         started = new AtomicBoolean(false);
-        queue = new ArrayList<InputLogEvent>(maxQueueSize);
+        queue = new TreeSet<InputLogEvent>(new Comparator<InputLogEvent>() {
+
+            @Override
+            public int compare(InputLogEvent o1, InputLogEvent o2) {
+                int r = o1.getTimestamp().compareTo(o2.getTimestamp());
+                if (r == 0) {
+                    r = o1.getMessage().compareTo(o2.getMessage());
+                }
+                return r;
+            }
+        });
     }
 
     @Override
