@@ -9,6 +9,16 @@ An [Amazon Web Services](https://aws.amazon.com) [CloudWatch Logs](http://docs.a
 ```xml
 <project>
     ...
+    <repositories>
+        <repository>
+            <id>sonatype-snapshots</id>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+            <releases><enabled>false</enabled></releases>
+            <snapshots><enabled>true</enabled></snapshots>
+        </repository>
+        ...
+    </repositories>
+    ...
     <dependencies>
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -18,7 +28,7 @@ An [Amazon Web Services](https://aws.amazon.com) [CloudWatch Logs](http://docs.a
         <dependency>
             <groupId>ca.pjer</groupId>
             <artifactId>logback-awslogs-appender</artifactId>
-            <version>0.2.2-SNAPSHOT</version>
+            <version>0.2.3-SNAPSHOT</version>
         </dependency>
         ...
     </dependencies>

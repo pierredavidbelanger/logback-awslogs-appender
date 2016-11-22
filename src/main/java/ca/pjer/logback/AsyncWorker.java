@@ -2,9 +2,10 @@ package ca.pjer.logback;
 
 import com.amazonaws.services.logs.model.InputLogEvent;
 
-import java.util.Comparator;
-import java.util.SortedSet;
-import java.util.TreeSet;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 class AsyncWorker extends Worker implements Runnable {
@@ -13,7 +14,8 @@ class AsyncWorker extends Worker implements Runnable {
     private final int maxQueueSize;
     private final long maxFlushTimeMillis;
     private final AtomicBoolean started;
-    private final SortedSet<InputLogEvent> queue;
+    private final BlockingQueue<InputLogEvent> queue;
+    private final Object monitor;
 
     private Thread thread;
 
@@ -23,17 +25,8 @@ class AsyncWorker extends Worker implements Runnable {
         this.maxQueueSize = maxQueueSize;
         this.maxFlushTimeMillis = maxFlushTimeMillis;
         started = new AtomicBoolean(false);
-        queue = new TreeSet<InputLogEvent>(new Comparator<InputLogEvent>() {
-
-            @Override
-            public int compare(InputLogEvent o1, InputLogEvent o2) {
-                int r = o1.getTimestamp().compareTo(o2.getTimestamp());
-                if (r == 0) {
-                    r = o1.getMessage().compareTo(o2.getMessage());
-                }
-                return r;
-            }
-        });
+        queue = new LinkedBlockingDeque<InputLogEvent>();
+        monitor = new Object();
     }
 
     @Override
@@ -50,8 +43,8 @@ class AsyncWorker extends Worker implements Runnable {
     @Override
     public synchronized void stop() {
         if (started.compareAndSet(true, false)) {
-            synchronized (queue) {
-                queue.notifyAll();
+            synchronized (monitor) {
+                monitor.notifyAll();
             }
             if (thread != null) {
                 try {
@@ -68,10 +61,10 @@ class AsyncWorker extends Worker implements Runnable {
 
     @Override
     public void append(InputLogEvent event) {
-        synchronized (queue) {
-            queue.add(event);
-            if (queue.size() >= maxQueueSize) {
-                queue.notifyAll();
+        queue.offer(event);
+        if (queue.size() >= maxQueueSize) {
+            synchronized (monitor) {
+                monitor.notifyAll();
             }
         }
     }
@@ -79,25 +72,34 @@ class AsyncWorker extends Worker implements Runnable {
     @Override
     public void run() {
         while (started.get()) {
+            flush(false);
             try {
-                synchronized (queue) {
-                    if (!queue.isEmpty()) {
-                        getAwsLogsStub().logEvents(queue);
-                        queue.clear();
-                    }
-                    queue.wait(maxFlushTimeMillis);
+                synchronized (monitor) {
+                    monitor.wait(maxFlushTimeMillis);
                 }
             } catch (InterruptedException e) {
                 break;
-            } catch (Exception e) {
-                e.printStackTrace();
             }
         }
-        synchronized (queue) {
+        flush(true);
+    }
+
+    private void flush(boolean all) {
+        try {
             if (!queue.isEmpty()) {
-                getAwsLogsStub().logEvents(queue);
-                queue.clear();
+                List<InputLogEvent> events = new ArrayList<InputLogEvent>(maxQueueSize);
+                while (true) {
+                    queue.drainTo(events, maxQueueSize);
+                    getAwsLogsStub().logEvents(events);
+                    int size = queue.size();
+                    if (size == 0 || (size <= maxQueueSize && !all)) {
+                        break;
+                    }
+                    events.clear();
+                }
             }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }
