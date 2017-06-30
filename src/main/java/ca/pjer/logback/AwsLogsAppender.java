@@ -72,7 +72,7 @@ public class AwsLogsAppender extends AppenderBase<ILoggingEvent> {
             }
             if (logStreamName == null) {
                 logStreamName = new SimpleDateFormat("yyyyMMdd'T'HHmmss").format(new Date());
-                addStatus(new WarnStatus("No logGroupName, default to " + logStreamName, this));
+                addStatus(new WarnStatus("No logStreamName, default to " + logStreamName, this));
             }
             try {
                 if (this.awsLogs == null) {
