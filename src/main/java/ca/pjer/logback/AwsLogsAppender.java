@@ -8,13 +8,16 @@ import ch.qos.logback.core.status.ErrorStatus;
 import ch.qos.logback.core.status.InfoStatus;
 import ch.qos.logback.core.status.WarnStatus;
 import com.amazonaws.AmazonClientException;
+import com.amazonaws.AmazonServiceException;
 import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.services.logs.AWSLogs;
 import com.amazonaws.services.logs.AWSLogsClient;
 import com.amazonaws.services.logs.model.*;
 
 import java.text.SimpleDateFormat;
+import java.util.LinkedList;
 import java.util.Date;
+import java.util.List;
 
 public class AwsLogsAppender extends AppenderBase<ILoggingEvent> {
 
@@ -112,24 +115,39 @@ public class AwsLogsAppender extends AppenderBase<ILoggingEvent> {
             layout.stop();
         }
     }
+    
+    private final List<InputLogEvent> backLog = new LinkedList<InputLogEvent>();
 
     @Override
     protected void append(ILoggingEvent event) {
+        final InputLogEvent inputLogEvent = new InputLogEvent()
+                .withTimestamp(event.getTimeStamp())
+                .withMessage(layout.doLayout(event));
         try {
-            PutLogEventsRequest request = new PutLogEventsRequest()
+            
+            final PutLogEventsRequest request = new PutLogEventsRequest()
                     .withLogGroupName(logGroupName)
                     .withLogStreamName(logStreamName)
-                    .withSequenceToken(sequenceToken)
-                    .withLogEvents(new InputLogEvent()
-                            .withTimestamp(event.getTimeStamp())
-                            .withMessage(layout.doLayout(event)));
-            PutLogEventsResult result = awsLogs.putLogEvents(request);
+                    .withSequenceToken(sequenceToken);
+            if (backLog.size() > 0) {
+                request.withLogEvents(backLog);
+            }
+            request.withLogEvents(inputLogEvent);
+            final PutLogEventsResult result = awsLogs.putLogEvents(request);
             sequenceToken = result.getNextSequenceToken();
+            backLog.clear();
         } catch (DataAlreadyAcceptedException e) {
             sequenceToken = e.getExpectedSequenceToken();
         } catch (InvalidSequenceTokenException e) {
             sequenceToken = e.getExpectedSequenceToken();
             append(event);
+        } catch (AmazonServiceException e) {
+            backLog.add(inputLogEvent);
+            // when sending too fast CloudWatch returns ThrottlingException
+            if ("ThrottlingException".equals(e.getErrorCode())) {
+                //TODO put next events in backlog to lower the sending rate....
+            }
+            addStatus(new InfoStatus(e.getMessage(), this));
         }
     }
 }
