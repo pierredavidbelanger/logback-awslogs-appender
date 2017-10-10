@@ -1,17 +1,18 @@
 package ca.pjer.logback;
 
+import ch.qos.logback.classic.spi.ILoggingEvent;
 import com.amazonaws.services.logs.model.InputLogEvent;
 
 abstract class Worker {
 
-    private AWSLogsStub awsLogsStub;
+    private AwsLogsAppender awsLogsAppender;
 
-    Worker(AWSLogsStub awsLogsStub) {
-        this.awsLogsStub = awsLogsStub;
+    Worker(AwsLogsAppender awsLogsAppender) {
+        this.awsLogsAppender = awsLogsAppender;
     }
 
-    AWSLogsStub getAwsLogsStub() {
-        return awsLogsStub;
+    AwsLogsAppender getAwsLogsAppender() {
+        return awsLogsAppender;
     }
 
     public synchronized void start() {
@@ -20,5 +21,10 @@ abstract class Worker {
     public synchronized void stop() {
     }
 
-    public abstract void append(InputLogEvent event);
+    public abstract void append(ILoggingEvent event);
+
+    InputLogEvent asInputLogEvent(ILoggingEvent event) {
+        return new InputLogEvent().withTimestamp(event.getTimeStamp())
+                .withMessage(awsLogsAppender.getLayout().doLayout(event));
+    }
 }

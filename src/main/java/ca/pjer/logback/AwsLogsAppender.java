@@ -5,7 +5,6 @@ import ch.qos.logback.core.Layout;
 import ch.qos.logback.core.UnsynchronizedAppenderBase;
 import ch.qos.logback.core.layout.EchoLayout;
 import ch.qos.logback.core.status.WarnStatus;
-import com.amazonaws.services.logs.model.InputLogEvent;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -19,68 +18,92 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     private String logRegion;
     private int maxQueueSize = 50;
     private long maxFlushTimeMillis = 0;
+    private long maxBlockTimeMillis = 5000;
 
     private AWSLogsStub awsLogsStub;
     private Worker worker;
 
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public Layout<ILoggingEvent> getLayout() {
         return layout;
     }
 
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public void setLayout(Layout<ILoggingEvent> layout) {
         this.layout = layout;
     }
 
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public String getLogGroupName() {
         return logGroupName;
     }
 
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public void setLogGroupName(String logGroupName) {
         this.logGroupName = logGroupName;
     }
 
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public String getLogStreamName() {
         return logStreamName;
     }
 
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public void setLogStreamName(String logStreamName) {
         this.logStreamName = logStreamName;
     }
 
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public String getLogRegion() {
         return logRegion;
     }
 
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public void setLogRegion(String logRegion) {
         this.logRegion = logRegion;
     }
 
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public int getMaxQueueSize() {
         return maxQueueSize;
     }
 
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public void setMaxQueueSize(int maxQueueSize) {
         this.maxQueueSize = maxQueueSize;
     }
 
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "WeakerAccess"})
+
     public long getMaxFlushTimeMillis() {
         return maxFlushTimeMillis;
     }
 
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public void setMaxFlushTimeMillis(long maxFlushTimeMillis) {
         this.maxFlushTimeMillis = maxFlushTimeMillis;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public long getMaxBlockTimeMillis() {
+        return maxBlockTimeMillis;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setMaxBlockTimeMillis(long maxBlockTimeMillis) {
+        this.maxBlockTimeMillis = maxBlockTimeMillis;
+    }
+
+    AWSLogsStub getAwsLogsStub() {
+        return awsLogsStub;
+    }
+
+    void setAwsLogsStub(AWSLogsStub awsLogsStub) {
+        this.awsLogsStub = awsLogsStub;
+    }
+
+    void setWorker(Worker worker) {
+        this.worker = worker;
     }
 
     @Override
@@ -105,8 +128,8 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
             }
             if (this.worker == null) {
                 Worker worker = maxFlushTimeMillis > 0 ?
-                        new AsyncWorker(awsLogsStub, getName(), maxQueueSize, maxFlushTimeMillis) :
-                        new SyncWorker(awsLogsStub);
+                        new AsyncWorker(this) :
+                        new SyncWorker(this);
                 this.worker = worker;
                 worker.start();
             }
@@ -134,9 +157,7 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     @Override
     protected void append(ILoggingEvent event) {
         if (worker != null) {
-            worker.append(new InputLogEvent()
-                    .withTimestamp(event.getTimeStamp())
-                    .withMessage(layout.doLayout(event)));
+            worker.append(event);
         }
     }
 }

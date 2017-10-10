@@ -24,7 +24,7 @@ class AWSLogsStub {
     private String sequenceToken;
     private Long lastTimestamp;
 
-    public AWSLogsStub(String logGroupName, String logStreamName, String logRegion) {
+    AWSLogsStub(String logGroupName, String logStreamName, String logRegion) {
 
         this.logGroupName = logGroupName;
         this.logStreamName = logStreamName;
@@ -36,7 +36,7 @@ class AWSLogsStub {
         this.awsLogs = awsLogs;
     }
 
-    public synchronized AWSLogsStub start() {
+    synchronized void start() {
         try {
             awsLogs.createLogGroup(new CreateLogGroupRequest().withLogGroupName(logGroupName));
         } catch (ResourceAlreadyExistsException e) {
@@ -47,19 +47,17 @@ class AWSLogsStub {
         } catch (ResourceAlreadyExistsException e) {
             // ignore
         }
-        return this;
     }
 
-    public synchronized AWSLogsStub stop() {
+    synchronized void stop() {
         try {
             awsLogs.shutdown();
         } catch (Exception e) {
             // ignore
         }
-        return this;
     }
 
-    public synchronized AWSLogsStub logEvents(Collection<InputLogEvent> events) {
+    synchronized void logEvents(Collection<InputLogEvent> events) {
         if (events.size() > 1) {
             List<InputLogEvent> sortedEvents = new ArrayList<InputLogEvent>(events);
             Collections.sort(sortedEvents, inputLogEventByTimestampComparator);
@@ -73,7 +71,6 @@ class AWSLogsStub {
             }
         }
         logPreparedEvents(events);
-        return this;
     }
 
     private void logPreparedEvents(Collection<InputLogEvent> events) {

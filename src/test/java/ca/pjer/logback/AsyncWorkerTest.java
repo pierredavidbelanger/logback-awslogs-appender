@@ -1,16 +1,17 @@
 package ca.pjer.logback;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.classic.spi.LoggingEvent;
+import ch.qos.logback.core.layout.EchoLayout;
 import com.amazonaws.services.logs.model.InputLogEvent;
-import com.amazonaws.services.logs.model.InvalidParameterException;
-import org.junit.Assert;
 import org.junit.Test;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
+import org.mockito.ArgumentMatcher;
 
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.mockito.Mockito.*;
 
@@ -20,45 +21,81 @@ public class AsyncWorkerTest {
         return anyCollection();
     }
 
-    private static InputLogEvent dummyInputLogEvent() {
-        return new InputLogEvent().withTimestamp(System.currentTimeMillis()).withMessage("Dummy " + UUID.randomUUID().toString());
+    private static final AtomicLong timestamp = new AtomicLong(System.currentTimeMillis());
+
+    private static ILoggingEvent dummyEvent() {
+        LoggerContext loggerContext = new LoggerContext();
+        LoggingEvent event = new LoggingEvent(AsyncWorkerTest.class.getName(), loggerContext.getLogger(AsyncWorkerTest.class.getName()), Level.WARN, "Dummy " + UUID.randomUUID().toString(), null, null);
+        event.setTimeStamp(timestamp.getAndIncrement());
+        return event;
     }
 
-    private static AsyncWorker asyncWorker(AWSLogsStub mockedAwsLogsStub, int maxQueueSize, long maxFlushTimeMillis) {
-        return new AsyncWorker(mockedAwsLogsStub, "test", maxQueueSize, maxFlushTimeMillis);
+    private static AsyncWorker asyncWorker(AWSLogsStub mockedAwsLogsStub, int maxQueueSize, long maxFlushTimeMillis, long maxBlockTimeMillis) {
+        AwsLogsAppender awsLogsAppender = new AwsLogsAppender();
+        awsLogsAppender.setLayout(new EchoLayout<ILoggingEvent>());
+        awsLogsAppender.setLogGroupName("FakeGroup");
+        awsLogsAppender.setLogStreamName("FakeStream");
+        awsLogsAppender.setMaxQueueSize(maxQueueSize);
+        awsLogsAppender.setMaxFlushTimeMillis(maxFlushTimeMillis);
+        awsLogsAppender.setMaxBlockTimeMillis(maxBlockTimeMillis);
+        awsLogsAppender.setAwsLogsStub(mockedAwsLogsStub);
+        AsyncWorker asyncWorker = new AsyncWorker(awsLogsAppender);
+        awsLogsAppender.setWorker(asyncWorker);
+        return asyncWorker;
     }
 
     @Test
     public void testShouldNotLogWhenStopped() {
         AWSLogsStub mockedAwsLogsStub = mock(AWSLogsStub.class);
-        AsyncWorker asyncWorker = asyncWorker(mockedAwsLogsStub, 1, 1);
+        AsyncWorker asyncWorker = asyncWorker(mockedAwsLogsStub, 1, 1, 5000);
         asyncWorker.start();
         asyncWorker.stop();
-        asyncWorker.append(dummyInputLogEvent());
+        asyncWorker.append(dummyEvent());
         verify(mockedAwsLogsStub, never()).logEvents(anyInputLogEvents());
     }
 
     @Test
     public void testShouldLogWhenStarted() {
         AWSLogsStub mockedAwsLogsStub = mock(AWSLogsStub.class);
-        AsyncWorker asyncWorker = asyncWorker(mockedAwsLogsStub, 1, 1);
+        AsyncWorker asyncWorker = asyncWorker(mockedAwsLogsStub, 1, 1, 5000);
         asyncWorker.start();
-        asyncWorker.append(dummyInputLogEvent());
+        asyncWorker.append(dummyEvent());
         asyncWorker.stop();
         verify(mockedAwsLogsStub, atLeastOnce()).logEvents(anyInputLogEvents());
     }
 
     @Test
+    public void testShouldDiscardEventsWhenFull() {
+        AWSLogsStub mockedAwsLogsStub = mock(AWSLogsStub.class);
+        AsyncWorker asyncWorker = asyncWorker(mockedAwsLogsStub, 1, 1, 0);
+        asyncWorker.append(dummyEvent());
+        asyncWorker.append(dummyEvent());
+        asyncWorker.start();
+        asyncWorker.stop();
+        verify(mockedAwsLogsStub, atLeastOnce()).logEvents(argThat(new ArgumentMatcher<Collection<InputLogEvent>>() {
+            @Override
+            public boolean matches(Collection<InputLogEvent> inputLogEvents) {
+                return inputLogEvents.size() == 1;
+            }
+
+            @Override
+            public String toString() {
+                return "Collection of InputLogEvent with only 1 element";
+            }
+        }));
+    }
+
+    @Test
     public void testShouldLogAfterMaxQueueSize() {
         AWSLogsStub mockedAwsLogsStub = mock(AWSLogsStub.class);
-        AsyncWorker asyncWorker = asyncWorker(mockedAwsLogsStub, 5, Long.MAX_VALUE);
+        AsyncWorker asyncWorker = asyncWorker(mockedAwsLogsStub, 5, Long.MAX_VALUE, 5000);
         asyncWorker.start();
-        asyncWorker.append(dummyInputLogEvent());
-        asyncWorker.append(dummyInputLogEvent());
-        asyncWorker.append(dummyInputLogEvent());
-        asyncWorker.append(dummyInputLogEvent());
+        asyncWorker.append(dummyEvent());
+        asyncWorker.append(dummyEvent());
+        asyncWorker.append(dummyEvent());
+        asyncWorker.append(dummyEvent());
         verify(mockedAwsLogsStub, never()).logEvents(anyInputLogEvents());
-        asyncWorker.append(dummyInputLogEvent());
+        asyncWorker.append(dummyEvent());
         asyncWorker.stop();
         verify(mockedAwsLogsStub, atLeastOnce()).logEvents(anyInputLogEvents());
     }
@@ -66,7 +103,7 @@ public class AsyncWorkerTest {
     @Test
     public void testShouldNotLogEmptyAfterMaxFlushTimeMillis() {
         AWSLogsStub mockedAwsLogsStub = mock(AWSLogsStub.class);
-        AsyncWorker asyncWorker = asyncWorker(mockedAwsLogsStub, 1, 1);
+        AsyncWorker asyncWorker = asyncWorker(mockedAwsLogsStub, 1, 1, 5000);
         asyncWorker.start();
         try {
             Thread.sleep(1000);
@@ -79,43 +116,9 @@ public class AsyncWorkerTest {
     @Test
     public void testShouldLogAfterMaxFlushTimeMillis() {
         AWSLogsStub mockedAwsLogsStub = mock(AWSLogsStub.class);
-        AsyncWorker asyncWorker = asyncWorker(mockedAwsLogsStub, 5, 1000);
+        AsyncWorker asyncWorker = asyncWorker(mockedAwsLogsStub, 5, 1000, 5000);
         asyncWorker.start();
-        asyncWorker.append(dummyInputLogEvent());
+        asyncWorker.append(dummyEvent());
         verify(mockedAwsLogsStub, after(1500)).logEvents(anyInputLogEvents());
-    }
-
-    // @Test
-    // This one is expected to fail, since the sorting is done in the AWSLogsStub
-    public void testShouldLogInChronologicalOrder() {
-        AWSLogsStub mockedAwsLogsStub = mock(AWSLogsStub.class);
-        final AtomicBoolean invalidParameterExceptionThrown = new AtomicBoolean(false);
-        when(mockedAwsLogsStub.logEvents(anyInputLogEvents())).then(new Answer<AWSLogsStub>() {
-
-            @Override
-            public AWSLogsStub answer(InvocationOnMock invocationOnMock) throws Throwable {
-                Collection<InputLogEvent> inputLogEvents = invocationOnMock.getArgument(0);
-                Long lastTimestamp = null;
-                for (Iterator<InputLogEvent> iterator = inputLogEvents.iterator(); iterator.hasNext(); ) {
-                    InputLogEvent next = iterator.next();
-                    if (lastTimestamp != null && lastTimestamp.compareTo(next.getTimestamp()) > 0) {
-                        invalidParameterExceptionThrown.set(true);
-                        throw new InvalidParameterException("Log events in a single PutLogEvents request must be in chronological order.");
-                    }
-                    lastTimestamp = next.getTimestamp();
-                }
-                return (AWSLogsStub) invocationOnMock.getMock();
-            }
-        });
-        AsyncWorker asyncWorker = asyncWorker(mockedAwsLogsStub, 2, Long.MAX_VALUE);
-        asyncWorker.start();
-        long now = System.currentTimeMillis();
-        InputLogEvent inputLogEvent1 = dummyInputLogEvent().withTimestamp(++now);
-        InputLogEvent inputLogEvent2 = dummyInputLogEvent().withTimestamp(++now);
-        asyncWorker.append(inputLogEvent2);
-        asyncWorker.append(inputLogEvent1);
-        asyncWorker.stop();
-        verify(mockedAwsLogsStub, atLeastOnce()).logEvents(anyInputLogEvents());
-        Assert.assertFalse(invalidParameterExceptionThrown.get());
     }
 }

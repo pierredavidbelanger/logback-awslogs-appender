@@ -28,7 +28,7 @@ An [Amazon Web Services](https://aws.amazon.com) [CloudWatch Logs](http://docs.a
         <dependency>
             <groupId>ca.pjer</groupId>
             <artifactId>logback-awslogs-appender</artifactId>
-            <version>0.2.3-SNAPSHOT</version>
+            <version>0.3.0-SNAPSHOT</version>
         </dependency>
         ...
     </dependencies>
@@ -108,27 +108,40 @@ A real life `logback.xml` would probably look like this (when all options are sp
 
     <!-- The actual AwsLogsAppender (asynchronous mode because of maxFlushTimeMillis > 0) -->
     <appender name="ASYNC_AWS_LOGS" class="ca.pjer.logback.AwsLogsAppender">
+    
         <!-- Send only WARN and above -->
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>WARN</level>
         </filter>
+        
         <!-- Nice layout pattern -->
         <layout>
             <pattern>%d{yyyyMMdd'T'HHmmss} %thread %level %logger{15} %msg%n</pattern>
         </layout>
+        
         <!-- Hardcoded Log Group Name -->
         <logGroupName>/com/acme/myapp</logGroupName>
+        
         <!-- Timestamped Log Stream Name -->
         <logStreamName>mystream-${date}</logStreamName>
+        
         <!-- Hardcoded AWS region -->
         <!-- So even when running inside an AWS instance in us-west-1, logs will go to us-west-2 -->
         <logRegion>us-west-2</logRegion>
+        
         <!-- Maximum size of the queue (50 is the default) -->
-        <!-- will flush when full, even if still in quiet time (see maxFlushTimeMillis) -->
+        <!-- will flush when the event queue has 50 elements, even if still in quiet time (see maxFlushTimeMillis) -->
         <maxQueueSize>50</maxQueueSize>
-        <!-- Maximum quiet time in millisecond (will flush every 30s) -->
+        
+        <!-- Maximum quiet time in millisecond (0 is the default) -->
         <!-- will flush when met, even if queue is not full (see maxQueueSize) -->
         <maxFlushTimeMillis>30000</maxFlushTimeMillis>
+        
+        <!-- Maximum block time in millisecond (5000 is the default) -->
+        <!-- when > 0: this is the maximum time the logging thread will wait for the logger, -->
+        <!-- when == 0: the logging thread will never wait for the logger, discarding events while the queue is full -->
+        <maxBlockTimeMillis>5000</maxBlockTimeMillis>
+        
     </appender>
 
     <!-- A console output -->

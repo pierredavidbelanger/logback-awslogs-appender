@@ -1,50 +1,48 @@
 package ca.pjer.logback;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.spi.ILoggingEvent;
 import com.amazonaws.services.logs.model.InputLogEvent;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 class AsyncWorker extends Worker implements Runnable {
 
-    private final String name;
-    private final int maxQueueSize;
-    private final long maxFlushTimeMillis;
-    private final AtomicBoolean started;
+    private final AtomicBoolean running;
     private final BlockingQueue<InputLogEvent> queue;
-    private final Object monitor;
+    private final AtomicLong lostCount;
 
     private Thread thread;
 
-    AsyncWorker(AWSLogsStub awsLogsStub, String name, int maxQueueSize, long maxFlushTimeMillis) {
-        super(awsLogsStub);
-        this.name = name;
-        this.maxQueueSize = maxQueueSize;
-        this.maxFlushTimeMillis = maxFlushTimeMillis;
-        started = new AtomicBoolean(false);
-        queue = new LinkedBlockingDeque<InputLogEvent>();
-        monitor = new Object();
+    AsyncWorker(AwsLogsAppender awsLogsAppender) {
+        super(awsLogsAppender);
+        running = new AtomicBoolean(false);
+        queue = new ArrayBlockingQueue<InputLogEvent>(awsLogsAppender.getMaxQueueSize());
+        lostCount = new AtomicLong(0);
     }
 
     @Override
     public synchronized void start() {
         super.start();
-        if (started.compareAndSet(false, true)) {
+        if (running.compareAndSet(false, true)) {
             thread = new Thread(this);
             thread.setDaemon(true);
-            thread.setName(name + " Async Worker");
+            thread.setName(getAwsLogsAppender().getName() + " Async Worker");
             thread.start();
         }
     }
 
     @Override
     public synchronized void stop() {
-        if (started.compareAndSet(true, false)) {
-            synchronized (monitor) {
-                monitor.notifyAll();
+        if (running.compareAndSet(true, false)) {
+            synchronized (running) {
+                running.notifyAll();
             }
             if (thread != null) {
                 try {
@@ -60,22 +58,62 @@ class AsyncWorker extends Worker implements Runnable {
     }
 
     @Override
-    public void append(InputLogEvent event) {
-        queue.offer(event);
-        if (queue.size() >= maxQueueSize) {
-            synchronized (monitor) {
-                monitor.notifyAll();
+    public void append(ILoggingEvent event) {
+        // don't bother trying to log if queue is full and event is not important (< WARN)
+        if (queue.remainingCapacity() == 0 && !event.getLevel().isGreaterOrEqual(Level.WARN)) {
+            lostCount.incrementAndGet();
+            synchronized (running) {
+                running.notifyAll();
+            }
+            return;
+        }
+        InputLogEvent logEvent = asInputLogEvent(event);
+        // are we allowed to block ?
+        if (getAwsLogsAppender().getMaxBlockTimeMillis() > 0) {
+            // we are allowed to block, offer uninterruptibly for the configured maximum blocking time
+            boolean interrupted = false;
+            long until = System.currentTimeMillis() + getAwsLogsAppender().getMaxBlockTimeMillis();
+            try {
+                long now = System.currentTimeMillis();
+                while (now < until) {
+                    try {
+                        if (!queue.offer(logEvent, until - now, TimeUnit.MILLISECONDS)) {
+                            lostCount.incrementAndGet();
+                        }
+                        break;
+                    } catch (InterruptedException e) {
+                        interrupted = true;
+                        now = System.currentTimeMillis();
+                    }
+                }
+            } finally {
+                if (interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        } else {
+            // we are not allowed to block, offer without blocking
+            if (!queue.offer(logEvent)) {
+                lostCount.incrementAndGet();
+            }
+        }
+        // trigger a flush if queue is full
+        if (queue.remainingCapacity() == 0) {
+            synchronized (running) {
+                running.notifyAll();
             }
         }
     }
 
     @Override
     public void run() {
-        while (started.get()) {
+        while (running.get()) {
             flush(false);
             try {
-                synchronized (monitor) {
-                    monitor.wait(maxFlushTimeMillis);
+                synchronized (running) {
+                    if (running.get()) {
+                        running.wait(getAwsLogsAppender().getMaxFlushTimeMillis());
+                    }
                 }
             } catch (InterruptedException e) {
                 break;
@@ -86,20 +124,25 @@ class AsyncWorker extends Worker implements Runnable {
 
     private void flush(boolean all) {
         try {
+            long lostCount = this.lostCount.getAndSet(0);
+            if (lostCount > 0) {
+                getAwsLogsAppender().addWarn(lostCount + " events lost");
+            }
             if (!queue.isEmpty()) {
-                List<InputLogEvent> events = new ArrayList<InputLogEvent>(maxQueueSize);
+                int size = queue.size();
+                List<InputLogEvent> events = new ArrayList<InputLogEvent>(size);
                 while (true) {
-                    queue.drainTo(events, maxQueueSize);
-                    getAwsLogsStub().logEvents(events);
-                    int size = queue.size();
-                    if (size == 0 || (size <= maxQueueSize && !all)) {
+                    queue.drainTo(events, size);
+                    getAwsLogsAppender().getAwsLogsStub().logEvents(events);
+                    size = queue.size();
+                    if (size == 0 || !all) {
                         break;
                     }
                     events.clear();
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            getAwsLogsAppender().addError("Unable to flush events to AWS", e);
         }
     }
 }
