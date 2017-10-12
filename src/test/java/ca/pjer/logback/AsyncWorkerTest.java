@@ -30,12 +30,12 @@ public class AsyncWorkerTest {
         return event;
     }
 
-    private static AsyncWorker asyncWorker(AWSLogsStub mockedAwsLogsStub, int maxQueueSize, long maxFlushTimeMillis, long maxBlockTimeMillis) {
+    private static AsyncWorker asyncWorker(AWSLogsStub mockedAwsLogsStub, int maxBatchSize, long maxFlushTimeMillis, long maxBlockTimeMillis) {
         AwsLogsAppender awsLogsAppender = new AwsLogsAppender();
         awsLogsAppender.setLayout(new EchoLayout<ILoggingEvent>());
         awsLogsAppender.setLogGroupName("FakeGroup");
         awsLogsAppender.setLogStreamName("FakeStream");
-        awsLogsAppender.setMaxQueueSize(maxQueueSize);
+        awsLogsAppender.setMaxBatchSize(maxBatchSize);
         awsLogsAppender.setMaxFlushTimeMillis(maxFlushTimeMillis);
         awsLogsAppender.setMaxBlockTimeMillis(maxBlockTimeMillis);
         awsLogsAppender.setAwsLogsStub(mockedAwsLogsStub);

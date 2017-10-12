@@ -28,7 +28,7 @@ An [Amazon Web Services](https://aws.amazon.com) [CloudWatch Logs](http://docs.a
         <dependency>
             <groupId>ca.pjer</groupId>
             <artifactId>logback-awslogs-appender</artifactId>
-            <version>0.3.0-SNAPSHOT</version>
+            <version>0.4.0-SNAPSHOT</version>
         </dependency>
         ...
     </dependencies>
@@ -129,12 +129,12 @@ A real life `logback.xml` would probably look like this (when all options are sp
         <!-- So even when running inside an AWS instance in us-west-1, logs will go to us-west-2 -->
         <logRegion>us-west-2</logRegion>
         
-        <!-- Maximum size of the queue (50 is the default) -->
+        <!-- Maximum number of event in each batch (50 is the default) -->
         <!-- will flush when the event queue has 50 elements, even if still in quiet time (see maxFlushTimeMillis) -->
-        <maxQueueSize>50</maxQueueSize>
+        <maxBatchSize>50</maxBatchSize>
         
         <!-- Maximum quiet time in millisecond (0 is the default) -->
-        <!-- will flush when met, even if queue is not full (see maxQueueSize) -->
+        <!-- will flush when met, even if the batch size is not met (see maxBatchSize) -->
         <maxFlushTimeMillis>30000</maxFlushTimeMillis>
         
         <!-- Maximum block time in millisecond (5000 is the default) -->

@@ -14,6 +14,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 class AsyncWorker extends Worker implements Runnable {
 
+    private final int maxBatchSize;
     private final AtomicBoolean running;
     private final BlockingQueue<InputLogEvent> queue;
     private final AtomicLong lostCount;
@@ -22,8 +23,9 @@ class AsyncWorker extends Worker implements Runnable {
 
     AsyncWorker(AwsLogsAppender awsLogsAppender) {
         super(awsLogsAppender);
+        maxBatchSize = awsLogsAppender.getMaxBatchSize();
         running = new AtomicBoolean(false);
-        queue = new ArrayBlockingQueue<InputLogEvent>(awsLogsAppender.getMaxQueueSize());
+        queue = new ArrayBlockingQueue<InputLogEvent>(maxBatchSize * 2);
         lostCount = new AtomicLong(0);
     }
 
@@ -59,8 +61,8 @@ class AsyncWorker extends Worker implements Runnable {
 
     @Override
     public void append(ILoggingEvent event) {
-        // don't bother trying to log if queue is full and event is not important (< WARN)
-        if (queue.remainingCapacity() == 0 && !event.getLevel().isGreaterOrEqual(Level.WARN)) {
+        // don't bother trying to log if queue is at max and event is not important (< WARN)
+        if (queue.size() >= maxBatchSize && !event.getLevel().isGreaterOrEqual(Level.WARN)) {
             lostCount.incrementAndGet();
             synchronized (running) {
                 running.notifyAll();
@@ -98,7 +100,7 @@ class AsyncWorker extends Worker implements Runnable {
             }
         }
         // trigger a flush if queue is full
-        if (queue.remainingCapacity() == 0) {
+        if (queue.size() >= maxBatchSize) {
             synchronized (running) {
                 running.notifyAll();
             }
@@ -129,13 +131,11 @@ class AsyncWorker extends Worker implements Runnable {
                 getAwsLogsAppender().addWarn(lostCount + " events lost");
             }
             if (!queue.isEmpty()) {
-                int size = queue.size();
-                List<InputLogEvent> events = new ArrayList<InputLogEvent>(size);
+                List<InputLogEvent> events = new ArrayList<InputLogEvent>(maxBatchSize);
                 while (true) {
-                    queue.drainTo(events, size);
+                    queue.drainTo(events, maxBatchSize);
                     getAwsLogsAppender().getAwsLogsStub().logEvents(events);
-                    size = queue.size();
-                    if (size == 0 || !all) {
+                    if (queue.isEmpty() || !all) {
                         break;
                     }
                     events.clear();
