@@ -7,7 +7,6 @@ import ch.qos.logback.classic.spi.LoggingEvent;
 import ch.qos.logback.core.layout.EchoLayout;
 import com.amazonaws.services.logs.model.InputLogEvent;
 import org.junit.Test;
-import org.mockito.ArgumentMatcher;
 
 import java.util.Collection;
 import java.util.UUID;
@@ -65,28 +64,7 @@ public class AsyncWorkerTest {
     }
 
     @Test
-    public void testShouldDiscardEventsWhenFull() {
-        AWSLogsStub mockedAwsLogsStub = mock(AWSLogsStub.class);
-        AsyncWorker asyncWorker = asyncWorker(mockedAwsLogsStub, 1, 1, 0);
-        asyncWorker.append(dummyEvent());
-        asyncWorker.append(dummyEvent());
-        asyncWorker.start();
-        asyncWorker.stop();
-        verify(mockedAwsLogsStub, atLeastOnce()).logEvents(argThat(new ArgumentMatcher<Collection<InputLogEvent>>() {
-            @Override
-            public boolean matches(Collection<InputLogEvent> inputLogEvents) {
-                return inputLogEvents.size() == 1;
-            }
-
-            @Override
-            public String toString() {
-                return "Collection of InputLogEvent with only 1 element";
-            }
-        }));
-    }
-
-    @Test
-    public void testShouldLogAfterMaxQueueSize() {
+    public void testShouldLogAfterMaxBatchSize() {
         AWSLogsStub mockedAwsLogsStub = mock(AWSLogsStub.class);
         AsyncWorker asyncWorker = asyncWorker(mockedAwsLogsStub, 5, Long.MAX_VALUE, 5000);
         asyncWorker.start();

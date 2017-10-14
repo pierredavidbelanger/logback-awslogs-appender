@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicLong;
 class AsyncWorker extends Worker implements Runnable {
 
     private final int maxBatchSize;
+    private final int discardThreshold;
     private final AtomicBoolean running;
     private final BlockingQueue<InputLogEvent> queue;
     private final AtomicLong lostCount;
@@ -24,6 +25,7 @@ class AsyncWorker extends Worker implements Runnable {
     AsyncWorker(AwsLogsAppender awsLogsAppender) {
         super(awsLogsAppender);
         maxBatchSize = awsLogsAppender.getMaxBatchSize();
+        discardThreshold = (int) Math.ceil(maxBatchSize * 1.5);
         running = new AtomicBoolean(false);
         queue = new ArrayBlockingQueue<InputLogEvent>(maxBatchSize * 2);
         lostCount = new AtomicLong(0);
@@ -61,8 +63,8 @@ class AsyncWorker extends Worker implements Runnable {
 
     @Override
     public void append(ILoggingEvent event) {
-        // don't bother trying to log if queue is at max and event is not important (< WARN)
-        if (queue.size() >= maxBatchSize && !event.getLevel().isGreaterOrEqual(Level.WARN)) {
+        // don't log if discardThreshold is met and event is not important (< WARN)
+        if (queue.size() >= discardThreshold && !event.getLevel().isGreaterOrEqual(Level.WARN)) {
             lostCount.incrementAndGet();
             synchronized (running) {
                 running.notifyAll();
@@ -132,14 +134,11 @@ class AsyncWorker extends Worker implements Runnable {
             }
             if (!queue.isEmpty()) {
                 List<InputLogEvent> events = new ArrayList<InputLogEvent>(maxBatchSize);
-                while (true) {
+                do {
                     queue.drainTo(events, maxBatchSize);
                     getAwsLogsAppender().getAwsLogsStub().logEvents(events);
-                    if (queue.isEmpty() || !all) {
-                        break;
-                    }
                     events.clear();
-                }
+                } while (queue.size() >= maxBatchSize || (all && !queue.isEmpty()));
             }
         } catch (Exception e) {
             getAwsLogsAppender().addError("Unable to flush events to AWS", e);
