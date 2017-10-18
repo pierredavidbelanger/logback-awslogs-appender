@@ -2,6 +2,12 @@
 
 An [Amazon Web Services](https://aws.amazon.com) [CloudWatch Logs](http://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/Welcome.html) [appender](http://logback.qos.ch/manual/appenders.html) for [Logback](http://logback.qos.ch/).
 
+Thank you for your help:
+- [ivanfmartinez](https://github.com/ivanfmartinez)
+- [jochenschneider](https://github.com/jochenschneider)
+- [malkusch](https://github.com/malkusch)
+- [robertoestivill](https://github.com/robertoestivill)
+
 ## Quick start
 
 ### `pom.xml`:
