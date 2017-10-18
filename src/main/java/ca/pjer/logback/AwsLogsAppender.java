@@ -1,64 +1,111 @@
 package ca.pjer.logback;
 
 import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.AppenderBase;
 import ch.qos.logback.core.Layout;
+import ch.qos.logback.core.UnsynchronizedAppenderBase;
 import ch.qos.logback.core.layout.EchoLayout;
-import ch.qos.logback.core.status.ErrorStatus;
-import ch.qos.logback.core.status.InfoStatus;
 import ch.qos.logback.core.status.WarnStatus;
-import com.amazonaws.AmazonClientException;
-import com.amazonaws.regions.RegionUtils;
-import com.amazonaws.services.logs.AWSLogs;
-import com.amazonaws.services.logs.AWSLogsClient;
-import com.amazonaws.services.logs.model.*;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-public class AwsLogsAppender extends AppenderBase<ILoggingEvent> {
+public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
 
     private Layout<ILoggingEvent> layout;
 
     private String logGroupName;
     private String logStreamName;
     private String logRegion;
+    private int maxBatchSize = 50;
+    private long maxFlushTimeMillis = 0;
+    private long maxBlockTimeMillis = 5000;
 
-    private AWSLogs awsLogs;
-    private String sequenceToken;
+    private AWSLogsStub awsLogsStub;
+    private Worker worker;
 
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public Layout<ILoggingEvent> getLayout() {
         return layout;
     }
 
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public void setLayout(Layout<ILoggingEvent> layout) {
         this.layout = layout;
     }
 
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public String getLogGroupName() {
         return logGroupName;
     }
 
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public void setLogGroupName(String logGroupName) {
         this.logGroupName = logGroupName;
     }
 
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public String getLogStreamName() {
         return logStreamName;
     }
 
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public void setLogStreamName(String logStreamName) {
         this.logStreamName = logStreamName;
     }
 
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public String getLogRegion() {
         return logRegion;
     }
-    
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public void setLogRegion(String logRegion) {
         this.logRegion = logRegion;
     }
-    
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public int getMaxBatchSize() {
+        return maxBatchSize;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setMaxBatchSize(int maxQueueSize) {
+        this.maxBatchSize = maxQueueSize;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+
+    public long getMaxFlushTimeMillis() {
+        return maxFlushTimeMillis;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setMaxFlushTimeMillis(long maxFlushTimeMillis) {
+        this.maxFlushTimeMillis = maxFlushTimeMillis;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public long getMaxBlockTimeMillis() {
+        return maxBlockTimeMillis;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setMaxBlockTimeMillis(long maxBlockTimeMillis) {
+        this.maxBlockTimeMillis = maxBlockTimeMillis;
+    }
+
+    AWSLogsStub getAwsLogsStub() {
+        return awsLogsStub;
+    }
+
+    void setAwsLogsStub(AWSLogsStub awsLogsStub) {
+        this.awsLogsStub = awsLogsStub;
+    }
+
+    void setWorker(Worker worker) {
+        this.worker = worker;
+    }
+
     @Override
     public synchronized void start() {
         if (!isStarted()) {
@@ -74,62 +121,43 @@ public class AwsLogsAppender extends AppenderBase<ILoggingEvent> {
                 logStreamName = new SimpleDateFormat("yyyyMMdd'T'HHmmss").format(new Date());
                 addStatus(new WarnStatus("No logStreamName, default to " + logStreamName, this));
             }
-            try {
-                if (this.awsLogs == null) {
-                    AWSLogs awsLogs = new AWSLogsClient();
-                    if (logRegion != null) {
-                        awsLogs.setRegion(RegionUtils.getRegion(logRegion));
-                    }
-                    try {
-                        awsLogs.createLogGroup(new CreateLogGroupRequest().withLogGroupName(logGroupName));
-                    } catch (ResourceAlreadyExistsException e) {
-                        addStatus(new InfoStatus(e.getMessage(), this));
-                    }
-                    try {
-                        awsLogs.createLogStream(new CreateLogStreamRequest().withLogGroupName(logGroupName).withLogStreamName(logStreamName));
-                    } catch (ResourceAlreadyExistsException e) {
-                        addStatus(new InfoStatus(e.getMessage(), this));
-                    }
-                    this.awsLogs = awsLogs;
-                    layout.start();
-                    super.start();
-                }
-            } catch (AmazonClientException e) {
-                this.awsLogs = null;
-                addStatus(new ErrorStatus(e.getMessage(), this, e));
+            if (this.awsLogsStub == null) {
+                AWSLogsStub awsLogsStub = new AWSLogsStub(logGroupName, logStreamName, logRegion);
+                this.awsLogsStub = awsLogsStub;
+                awsLogsStub.start();
             }
+            if (this.worker == null) {
+                Worker worker = maxFlushTimeMillis > 0 ?
+                        new AsyncWorker(this) :
+                        new SyncWorker(this);
+                this.worker = worker;
+                worker.start();
+            }
+            layout.start();
+            super.start();
         }
     }
 
     @Override
     public synchronized void stop() {
         if (isStarted()) {
-            if (awsLogs != null) {
-                awsLogs.shutdown();
-                awsLogs = null;
-            }
             super.stop();
             layout.stop();
+            if (worker != null) {
+                worker.stop();
+                worker = null;
+            }
+            if (awsLogsStub != null) {
+                awsLogsStub.stop();
+                awsLogsStub = null;
+            }
         }
     }
 
     @Override
     protected void append(ILoggingEvent event) {
-        try {
-            PutLogEventsRequest request = new PutLogEventsRequest()
-                    .withLogGroupName(logGroupName)
-                    .withLogStreamName(logStreamName)
-                    .withSequenceToken(sequenceToken)
-                    .withLogEvents(new InputLogEvent()
-                            .withTimestamp(event.getTimeStamp())
-                            .withMessage(layout.doLayout(event)));
-            PutLogEventsResult result = awsLogs.putLogEvents(request);
-            sequenceToken = result.getNextSequenceToken();
-        } catch (DataAlreadyAcceptedException e) {
-            sequenceToken = e.getExpectedSequenceToken();
-        } catch (InvalidSequenceTokenException e) {
-            sequenceToken = e.getExpectedSequenceToken();
-            append(event);
+        if (worker != null) {
+            worker.append(event);
         }
     }
 }
