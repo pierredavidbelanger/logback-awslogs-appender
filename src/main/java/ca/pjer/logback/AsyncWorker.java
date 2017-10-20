@@ -1,16 +1,20 @@
 package ca.pjer.logback;
 
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import com.amazonaws.services.logs.model.InputLogEvent;
+import static ca.pjer.logback.AwsLogsAppender.MAX_BATCH_LOG_EVENTS;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.ArrayDeque;
+import java.util.Collection;
+import java.util.Deque;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+
+import com.amazonaws.services.logs.model.InputLogEvent;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.spi.ILoggingEvent;
 
 class AsyncWorker extends Worker implements Runnable {
 
@@ -133,15 +137,36 @@ class AsyncWorker extends Worker implements Runnable {
                 getAwsLogsAppender().addWarn(lostCount + " events lost");
             }
             if (!queue.isEmpty()) {
-                List<InputLogEvent> events = new ArrayList<InputLogEvent>(maxBatchLogEvents);
                 do {
-                    queue.drainTo(events, maxBatchLogEvents);
-                    getAwsLogsAppender().getAwsLogsStub().logEvents(events);
-                    events.clear();
+                    Collection<InputLogEvent> batch = drainBatchFromQueue();
+                    getAwsLogsAppender().getAwsLogsStub().logEvents(batch);
                 } while (queue.size() >= maxBatchLogEvents || (all && !queue.isEmpty()));
             }
         } catch (Exception e) {
             getAwsLogsAppender().addError("Unable to flush events to AWS", e);
         }
+    }
+    
+    // See http://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutLogEvents.html
+    private static final int MAX_BATCH_SIZE = 1048576;
+
+    private Collection<InputLogEvent> drainBatchFromQueue() {
+        Deque<InputLogEvent> batch = new ArrayDeque<InputLogEvent>(maxBatchLogEvents);
+        queue.drainTo(batch, MAX_BATCH_LOG_EVENTS);
+        int batchSize = batchSize(batch);
+        while (batchSize > MAX_BATCH_SIZE) {
+            InputLogEvent removed = batch.removeLast();
+            batchSize -= eventSize(removed);
+            // TODO Requeue removed
+        }
+        return batch;
+    }
+    
+    private static int batchSize(Collection<InputLogEvent> batch) {
+        int size = 0;
+        for (InputLogEvent event : batch) {
+            size += eventSize(event);
+        }
+        return size;
     }
 }
