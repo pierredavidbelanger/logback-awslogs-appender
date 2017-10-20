@@ -70,6 +70,10 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
 
     @SuppressWarnings({"unused", "WeakerAccess"})
     public void setMaxBatchLogEvents(int maxBatchLogEvents) {
+        // See http://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutLogEvents.html
+        if (maxBatchLogEvents <= 0 || maxBatchLogEvents > 10000) {
+            throw new IllegalArgumentException("maxBatchLogEvents must be within 1 and 10000");
+        }
         this.maxBatchLogEvents = maxBatchLogEvents;
     }
 
