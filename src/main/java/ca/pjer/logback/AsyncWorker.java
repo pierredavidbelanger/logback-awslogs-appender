@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 class AsyncWorker extends Worker implements Runnable {
 
-    private final int maxBatchSize;
+    private final int maxBatchLogEvents;
     private final int discardThreshold;
     private final AtomicBoolean running;
     private final BlockingQueue<InputLogEvent> queue;
@@ -24,10 +24,10 @@ class AsyncWorker extends Worker implements Runnable {
 
     AsyncWorker(AwsLogsAppender awsLogsAppender) {
         super(awsLogsAppender);
-        maxBatchSize = awsLogsAppender.getMaxBatchSize();
-        discardThreshold = (int) Math.ceil(maxBatchSize * 1.5);
+        maxBatchLogEvents = awsLogsAppender.getMaxBatchLogEvents();
+        discardThreshold = (int) Math.ceil(maxBatchLogEvents * 1.5);
         running = new AtomicBoolean(false);
-        queue = new ArrayBlockingQueue<InputLogEvent>(maxBatchSize * 2);
+        queue = new ArrayBlockingQueue<InputLogEvent>(maxBatchLogEvents * 2);
         lostCount = new AtomicLong(0);
     }
 
@@ -102,7 +102,7 @@ class AsyncWorker extends Worker implements Runnable {
             }
         }
         // trigger a flush if queue is full
-        if (queue.size() >= maxBatchSize) {
+        if (queue.size() >= maxBatchLogEvents) {
             synchronized (running) {
                 running.notifyAll();
             }
@@ -133,12 +133,12 @@ class AsyncWorker extends Worker implements Runnable {
                 getAwsLogsAppender().addWarn(lostCount + " events lost");
             }
             if (!queue.isEmpty()) {
-                List<InputLogEvent> events = new ArrayList<InputLogEvent>(maxBatchSize);
+                List<InputLogEvent> events = new ArrayList<InputLogEvent>(maxBatchLogEvents);
                 do {
-                    queue.drainTo(events, maxBatchSize);
+                    queue.drainTo(events, maxBatchLogEvents);
                     getAwsLogsAppender().getAwsLogsStub().logEvents(events);
                     events.clear();
-                } while (queue.size() >= maxBatchSize || (all && !queue.isEmpty()));
+                } while (queue.size() >= maxBatchLogEvents || (all && !queue.isEmpty()));
             }
         } catch (Exception e) {
             getAwsLogsAppender().addError("Unable to flush events to AWS", e);

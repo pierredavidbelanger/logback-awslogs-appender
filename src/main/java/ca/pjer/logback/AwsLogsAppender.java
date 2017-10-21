@@ -16,7 +16,7 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     private String logGroupName;
     private String logStreamName;
     private String logRegion;
-    private int maxBatchSize = 50;
+    private int maxBatchLogEvents = 50;
     private long maxFlushTimeMillis = 0;
     private long maxBlockTimeMillis = 5000;
 
@@ -64,13 +64,13 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     }
 
     @SuppressWarnings({"unused", "WeakerAccess"})
-    public int getMaxBatchSize() {
-        return maxBatchSize;
+    public int getMaxBatchLogEvents() {
+        return maxBatchLogEvents;
     }
 
     @SuppressWarnings({"unused", "WeakerAccess"})
-    public void setMaxBatchSize(int maxQueueSize) {
-        this.maxBatchSize = maxQueueSize;
+    public void setMaxBatchLogEvents(int maxBatchLogEvents) {
+        this.maxBatchLogEvents = maxBatchLogEvents;
     }
 
     @SuppressWarnings({"unused", "WeakerAccess"})
