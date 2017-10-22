@@ -157,7 +157,9 @@ class AsyncWorker extends Worker implements Runnable {
         while (batchSize > MAX_BATCH_SIZE) {
             InputLogEvent removed = batch.removeLast();
             batchSize -= eventSize(removed);
-            // TODO Requeue removed
+            if (!queue.offer(removed)) {
+                getAwsLogsAppender().addWarn("Failed requeing message from too big batch");
+            }
         }
         return batch;
     }
