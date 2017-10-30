@@ -137,9 +137,9 @@ A real life `logback.xml` would probably look like this (when all options are sp
         <!-- So even when running inside an AWS instance in us-west-1, logs will go to us-west-2 -->
         <logRegion>us-west-2</logRegion>
         
-        <!-- Maximum number of event in each batch (50 is the default) -->
+        <!-- Maximum number of events in each batch (50 is the default) -->
         <!-- will flush when the event queue has 50 elements, even if still in quiet time (see maxFlushTimeMillis) -->
-        <maxBatchSize>50</maxBatchSize>
+        <maxBatchLogEvents>50</maxBatchLogEvents>
         
         <!-- Maximum quiet time in millisecond (0 is the default) -->
         <!-- will flush when met, even if the batch size is not met (see maxBatchSize) -->
