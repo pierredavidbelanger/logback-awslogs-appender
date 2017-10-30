@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/pierredavidbelanger/logback-awslogs-appender.svg?branch=master)](https://travis-ci.org/pierredavidbelanger/logback-awslogs-appender)
+
 # Logback AWSLogs appender
 
 An [Amazon Web Services](https://aws.amazon.com) [CloudWatch Logs](http://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/Welcome.html) [appender](http://logback.qos.ch/manual/appenders.html) for [Logback](http://logback.qos.ch/).
