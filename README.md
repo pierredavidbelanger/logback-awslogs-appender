@@ -16,17 +16,6 @@ Thank you for your help:
 
 ```xml
 <project>
-    ...
-    <repositories>
-        <repository>
-            <id>sonatype-snapshots</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-            <releases><enabled>false</enabled></releases>
-            <snapshots><enabled>true</enabled></snapshots>
-        </repository>
-        ...
-    </repositories>
-    ...
     <dependencies>
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -36,11 +25,9 @@ Thank you for your help:
         <dependency>
             <groupId>ca.pjer</groupId>
             <artifactId>logback-awslogs-appender</artifactId>
-            <version>1.0.0-SNAPSHOT</version>
+            <version>1.0.0</version>
         </dependency>
-        ...
     </dependencies>
-    ...
 </project>
 ```
 
@@ -142,7 +129,7 @@ A real life `logback.xml` would probably look like this (when all options are sp
         <maxBatchLogEvents>50</maxBatchLogEvents>
         
         <!-- Maximum quiet time in millisecond (0 is the default) -->
-        <!-- will flush when met, even if the batch size is not met (see maxBatchSize) -->
+        <!-- will flush when met, even if the batch size is not met (see maxBatchLogEvents) -->
         <maxFlushTimeMillis>30000</maxFlushTimeMillis>
         
         <!-- Maximum block time in millisecond (5000 is the default) -->
