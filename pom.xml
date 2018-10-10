@@ -7,7 +7,7 @@
 
     <groupId>ca.pjer</groupId>
     <artifactId>logback-awslogs-appender</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
 
     <name>Logback AWSLogs appender</name>
     <description>An Amazon Web Services (AWS) Logs (CloudWatch) appender for Logback</description>
@@ -47,8 +47,8 @@
     </distributionManagement>
 
     <properties>
-        <maven.compiler.source>1.6</maven.compiler.source>
-        <maven.compiler.target>1.6</maven.compiler.target>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
     </properties>
 
     <dependencies>
@@ -60,7 +60,7 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-logs</artifactId>
-            <version>1.11.55</version>
+            <version>1.11.423</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>

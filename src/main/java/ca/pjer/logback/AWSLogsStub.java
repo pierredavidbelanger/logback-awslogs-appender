@@ -1,42 +1,39 @@
 package ca.pjer.logback;
 
-import com.amazonaws.regions.RegionUtils;
 import com.amazonaws.services.logs.AWSLogs;
-import com.amazonaws.services.logs.AWSLogsClient;
+import com.amazonaws.services.logs.AWSLogsClientBuilder;
 import com.amazonaws.services.logs.model.*;
 
 import java.util.*;
 
 class AWSLogsStub {
-
-    private final Comparator<InputLogEvent> inputLogEventByTimestampComparator = new Comparator<InputLogEvent>() {
-
-        @Override
-        public int compare(InputLogEvent o1, InputLogEvent o2) {
-            return o1.getTimestamp().compareTo(o2.getTimestamp());
-        }
-    };
-
+    private final Comparator<InputLogEvent> inputLogEventByTimestampComparator = Comparator.comparing(InputLogEvent::getTimestamp);
     private final String logGroupName;
     private final String logStreamName;
-    private final AWSLogs awsLogs;
-
+    private final String logRegion;
     private String sequenceToken;
     private Long lastTimestamp;
+    private final Lazy<AWSLogs> lazyAwsLogs = new Lazy<>();
 
     AWSLogsStub(String logGroupName, String logStreamName, String logRegion) {
-
         this.logGroupName = logGroupName;
         this.logStreamName = logStreamName;
-
-        AWSLogs awsLogs = new AWSLogsClient();
-        if (logRegion != null) {
-            awsLogs.setRegion(RegionUtils.getRegion(logRegion));
-        }
-        this.awsLogs = awsLogs;
+        this.logRegion = logRegion;
     }
 
-    synchronized void start() {
+    private AWSLogs awsLogs() {
+        return lazyAwsLogs.getOrCompute(() -> {
+            System.out.println("Creating AWSLogs Client");
+            AWSLogsClientBuilder builder = AWSLogsClientBuilder.standard();
+            builder.setRegion(logRegion);
+
+            AWSLogs awsLogs = builder.build();
+            initLogGroup(awsLogs);
+            return awsLogs;
+        });
+    }
+
+    private void initLogGroup(AWSLogs awsLogs) {
         try {
             awsLogs.createLogGroup(new CreateLogGroupRequest().withLogGroupName(logGroupName));
         } catch (ResourceAlreadyExistsException e) {
@@ -49,9 +46,12 @@ class AWSLogsStub {
         }
     }
 
+    synchronized void start() {
+    }
+
     synchronized void stop() {
         try {
-            awsLogs.shutdown();
+            awsLogs().shutdown();
         } catch (Exception e) {
             // ignore
         }
@@ -80,7 +80,7 @@ class AWSLogsStub {
                     .withLogStreamName(logStreamName)
                     .withSequenceToken(sequenceToken)
                     .withLogEvents(events);
-            PutLogEventsResult result = awsLogs.putLogEvents(request);
+            PutLogEventsResult result = awsLogs().putLogEvents(request);
             sequenceToken = result.getNextSequenceToken();
         } catch (DataAlreadyAcceptedException e) {
             sequenceToken = e.getExpectedSequenceToken();
