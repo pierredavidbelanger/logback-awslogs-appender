@@ -25,7 +25,7 @@ Thank you for your help:
         <dependency>
             <groupId>ca.pjer</groupId>
             <artifactId>logback-awslogs-appender</artifactId>
-            <version>1.1.0</version>
+            <version>1.1.1</version>
         </dependency>
     </dependencies>
 </project>
@@ -87,6 +87,10 @@ logger.info("HelloWorld");
 ```
 
 ## More configurations
+
+It may be worth quoting this from _AWS_, beacause this is why we need to have unique `logStreamName`:
+
+> When you have two processes attempting to perform the PutLogEvents API call to the same log stream, there is a chance that one will pass and one will fail because of the sequence token provided for that same log stream. Because of the sequencing of these events maintained in the log stream, you cannot have concurrently running processes pushing to the same log-stream.
 
 A real life `logback.xml` would probably look like this (when all options are specified):
 
