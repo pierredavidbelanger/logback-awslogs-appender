@@ -103,7 +103,7 @@ A real life `logback.xml` would probably look like this (when all options are sp
     <shutdownHook class="ch.qos.logback.core.hook.DelayingShutdownHook"/>
 
     <!-- Timestamp used into the Log Stream Name -->
-    <timestamp key="date" datePattern="yyyyMMdd"/>
+    <timestamp key="timestamp" datePattern="yyyyMMddHHmmssSSS"/>
 
     <!-- The actual AwsLogsAppender (asynchronous mode because of maxFlushTimeMillis > 0) -->
     <appender name="ASYNC_AWS_LOGS" class="ca.pjer.logback.AwsLogsAppender">
@@ -122,7 +122,7 @@ A real life `logback.xml` would probably look like this (when all options are sp
         <logGroupName>/com/acme/myapp</logGroupName>
         
         <!-- Timestamped Log Stream Name -->
-        <logStreamName>mystream-${date}</logStreamName>
+        <logStreamName>mystream-${timestamp}</logStreamName>
         
         <!-- Hardcoded AWS region -->
         <!-- So even when running inside an AWS instance in us-west-1, logs will go to us-west-2 -->
