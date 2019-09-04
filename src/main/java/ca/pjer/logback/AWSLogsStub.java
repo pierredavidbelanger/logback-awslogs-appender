@@ -15,7 +15,7 @@ class AWSLogsStub {
     private Long lastTimestamp;
     private final Lazy<AWSLogs> lazyAwsLogs = new Lazy<>();
 
-    AWSLogsStub(String logGroupName, String logStreamName, String logRegion) {
+    AWSLogsStub(final String logGroupName, final String logStreamName, final String logRegion) {
         this.logGroupName = logGroupName;
         this.logStreamName = logStreamName;
         this.logRegion = logRegion;
@@ -24,27 +24,38 @@ class AWSLogsStub {
     private AWSLogs awsLogs() {
         return lazyAwsLogs.getOrCompute(() -> {
             System.out.println("Creating AWSLogs Client");
-            AWSLogsClientBuilder builder = AWSLogsClientBuilder.standard();
+            final AWSLogsClientBuilder builder = AWSLogsClientBuilder.standard();
             Optional.ofNullable(logRegion).ifPresent(builder::setRegion);
 
-            AWSLogs awsLogs = builder.build();
+            final AWSLogs awsLogs = builder.build();
             initLogGroup(awsLogs);
             return awsLogs;
         });
     }
 
-    private void initLogGroup(AWSLogs awsLogs) {
-        try {
-            awsLogs.createLogGroup(new CreateLogGroupRequest().withLogGroupName(logGroupName));
-        } catch (ResourceAlreadyExistsException e) {
-            // ignore
-        }
-        try {
-            awsLogs.createLogStream(new CreateLogStreamRequest().withLogGroupName(logGroupName).withLogStreamName(logStreamName));
-        } catch (ResourceAlreadyExistsException e) {
-            // ignore
-        }
+    private void initLogGroup(final AWSLogs awsLogs) {
+		if(!existsAwsLogGroup(awsLogs)) {
+			System.out.println("Creating LogGroup: " + logGroupName);
+			awsLogs.createLogGroup(new CreateLogGroupRequest().withLogGroupName(logGroupName));
+		}
+		
+		if(!existsAwsLogStream(awsLogs)) {
+			System.out.println("Creating LogStream: " + logStreamName);
+			awsLogs.createLogStream(new CreateLogStreamRequest().withLogGroupName(logGroupName).withLogStreamName(logStreamName));
+		}
     }
+
+	private boolean existsAwsLogStream(final AWSLogs awsLogs) {
+		final DescribeLogStreamsRequest describleLogStreamsRequest = new DescribeLogStreamsRequest(logGroupName).withLogStreamNamePrefix(logStreamName);
+		final List<LogStream> logStreams = awsLogs.describeLogStreams(describleLogStreamsRequest).getLogStreams();
+		return logStreams.stream().anyMatch(logStream -> logStream.getLogStreamName().equals(logStreamName));
+	}
+
+	private boolean existsAwsLogGroup(final AWSLogs awsLogs) {
+		final DescribeLogGroupsRequest describeLogGroupsRequest = new DescribeLogGroupsRequest().withLogGroupNamePrefix(logGroupName);
+		final List<LogGroup> logGroups = awsLogs.describeLogGroups(describeLogGroupsRequest).getLogGroups();
+		return logGroups.stream().anyMatch(logGroup -> logGroup.getLogGroupName().equals(logGroupName));
+	}
 
     synchronized void start() {
     }
@@ -52,18 +63,18 @@ class AWSLogsStub {
     synchronized void stop() {
         try {
             awsLogs().shutdown();
-        } catch (Exception e) {
+        } catch (final Exception e) {
             // ignore
         }
     }
 
     synchronized void logEvents(Collection<InputLogEvent> events) {
         if (events.size() > 1) {
-            List<InputLogEvent> sortedEvents = new ArrayList<InputLogEvent>(events);
+            final List<InputLogEvent> sortedEvents = new ArrayList<InputLogEvent>(events);
             Collections.sort(sortedEvents, inputLogEventByTimestampComparator);
             events = sortedEvents;
         }
-        for (InputLogEvent event : events) {
+        for (final InputLogEvent event : events) {
             if (lastTimestamp != null && event.getTimestamp() < lastTimestamp) {
                 event.setTimestamp(lastTimestamp);
             } else {
@@ -73,18 +84,18 @@ class AWSLogsStub {
         logPreparedEvents(events);
     }
 
-    private void logPreparedEvents(Collection<InputLogEvent> events) {
+    private void logPreparedEvents(final Collection<InputLogEvent> events) {
         try {
-            PutLogEventsRequest request = new PutLogEventsRequest()
+            final PutLogEventsRequest request = new PutLogEventsRequest()
                     .withLogGroupName(logGroupName)
                     .withLogStreamName(logStreamName)
                     .withSequenceToken(sequenceToken)
                     .withLogEvents(events);
-            PutLogEventsResult result = awsLogs().putLogEvents(request);
+            final PutLogEventsResult result = awsLogs().putLogEvents(request);
             sequenceToken = result.getNextSequenceToken();
-        } catch (DataAlreadyAcceptedException e) {
+        } catch (final DataAlreadyAcceptedException e) {
             sequenceToken = e.getExpectedSequenceToken();
-        } catch (InvalidSequenceTokenException e) {
+        } catch (final InvalidSequenceTokenException e) {
             sequenceToken = e.getExpectedSequenceToken();
             logPreparedEvents(events);
         }
