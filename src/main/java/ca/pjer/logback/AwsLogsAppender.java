@@ -7,9 +7,7 @@ import ch.qos.logback.core.layout.EchoLayout;
 import ch.qos.logback.core.status.WarnStatus;
 
 import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Date;
-import java.util.List;
 
 public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     private Layout<ILoggingEvent> layout;
