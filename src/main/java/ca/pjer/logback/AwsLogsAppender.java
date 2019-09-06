@@ -10,7 +10,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
-
     private Layout<ILoggingEvent> layout;
 
     private String logGroupName;
@@ -19,6 +18,7 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     private int maxBatchLogEvents = 50;
     private long maxFlushTimeMillis = 0;
     private long maxBlockTimeMillis = 5000;
+    private int retentionTimeDays = 0;
 
     private AWSLogsStub awsLogsStub;
     private Worker worker;
@@ -100,6 +100,14 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
         this.maxBlockTimeMillis = maxBlockTimeMillis;
     }
 
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public int getRetentionTimeDays() { return retentionTimeDays; }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setRetentionTimeDays(int days) {
+        this.retentionTimeDays = days;
+    }
+
     AWSLogsStub getAwsLogsStub() {
         return awsLogsStub;
     }
@@ -128,7 +136,7 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
                 addStatus(new WarnStatus("No logStreamName, default to " + logStreamName, this));
             }
             if (this.awsLogsStub == null) {
-                AWSLogsStub awsLogsStub = new AWSLogsStub(logGroupName, logStreamName, logRegion);
+                AWSLogsStub awsLogsStub = new AWSLogsStub(logGroupName, logStreamName, logRegion, retentionTimeDays);
                 this.awsLogsStub = awsLogsStub;
                 awsLogsStub.start();
             }

@@ -141,6 +141,11 @@ A real life `logback.xml` would probably look like this (when all options are sp
         <!-- when == 0: the logging thread will never wait for the logger, discarding events while the queue is full -->
         <maxBlockTimeMillis>5000</maxBlockTimeMillis>
         
+        <!-- Retention value for log groups, 0 for infinite see -->
+        <!-- https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutRetentionPolicy.html for other -->
+        <!-- possible values -->
+        
+        <retentionTimeDays>0</retentionTimeDays>
     </appender>
 
     <!-- A console output -->

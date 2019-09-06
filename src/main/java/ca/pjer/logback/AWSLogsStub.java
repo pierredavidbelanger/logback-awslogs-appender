@@ -13,12 +13,15 @@ class AWSLogsStub {
     private final String logRegion;
     private String sequenceToken;
     private Long lastTimestamp;
+    private int retentionTimeInDays;
+
     private final Lazy<AWSLogs> lazyAwsLogs = new Lazy<>();
 
-    AWSLogsStub(String logGroupName, String logStreamName, String logRegion) {
+    AWSLogsStub(String logGroupName, String logStreamName, String logRegion, int retentionTimeInDays) {
         this.logGroupName = logGroupName;
         this.logStreamName = logStreamName;
         this.logRegion = logRegion;
+        this.retentionTimeInDays = retentionTimeInDays;
     }
 
     private AWSLogs awsLogs() {
@@ -36,6 +39,11 @@ class AWSLogsStub {
     private void initLogGroup(AWSLogs awsLogs) {
         try {
             awsLogs.createLogGroup(new CreateLogGroupRequest().withLogGroupName(logGroupName));
+            if(retentionTimeInDays > 0) {
+                awsLogs.putRetentionPolicy(new PutRetentionPolicyRequest()
+                        .withLogGroupName(logGroupName)
+                        .withRetentionInDays(retentionTimeInDays));
+            }
         } catch (ResourceAlreadyExistsException e) {
             // ignore
         }
