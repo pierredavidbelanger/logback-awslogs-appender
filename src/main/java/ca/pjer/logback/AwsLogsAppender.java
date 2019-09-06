@@ -12,7 +12,6 @@ import java.util.Date;
 import java.util.List;
 
 public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
-    private List<Integer> allowedRetentionDays = Arrays.asList(1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653);
     private Layout<ILoggingEvent> layout;
 
     private String logGroupName;
@@ -108,9 +107,6 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
 
     @SuppressWarnings({"unused", "WeakerAccess"})
     public void setRetentionTimeDays(int days) {
-        if(!allowedRetentionDays.contains(days)) {
-            throw new IllegalArgumentException("retentionTimeInDays must be one of 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827 or 3653");
-        }
         this.retentionTimeDays = days;
     }
 
