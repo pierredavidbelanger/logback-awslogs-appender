@@ -7,10 +7,12 @@ import ch.qos.logback.core.layout.EchoLayout;
 import ch.qos.logback.core.status.WarnStatus;
 
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 
 public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
-
+    private List<Integer> allowedRetentionDays = Arrays.asList(1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827, 3653);
     private Layout<ILoggingEvent> layout;
 
     private String logGroupName;
@@ -19,6 +21,7 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     private int maxBatchLogEvents = 50;
     private long maxFlushTimeMillis = 0;
     private long maxBlockTimeMillis = 5000;
+    private int retentionTimeDays = 0;
 
     private AWSLogsStub awsLogsStub;
     private Worker worker;
@@ -100,6 +103,17 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
         this.maxBlockTimeMillis = maxBlockTimeMillis;
     }
 
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public int getRetentionTimeDays() { return retentionTimeDays; }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setRetentionTimeDays(int days) {
+        if(!allowedRetentionDays.contains(days)) {
+            throw new IllegalArgumentException("retentionTimeInDays must be one of 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1827 or 3653");
+        }
+        this.retentionTimeDays = days;
+    }
+
     AWSLogsStub getAwsLogsStub() {
         return awsLogsStub;
     }
@@ -128,7 +142,7 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
                 addStatus(new WarnStatus("No logStreamName, default to " + logStreamName, this));
             }
             if (this.awsLogsStub == null) {
-                AWSLogsStub awsLogsStub = new AWSLogsStub(logGroupName, logStreamName, logRegion);
+                AWSLogsStub awsLogsStub = new AWSLogsStub(logGroupName, logStreamName, logRegion, retentionTimeDays);
                 this.awsLogsStub = awsLogsStub;
                 awsLogsStub.start();
             }
