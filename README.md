@@ -167,3 +167,27 @@ A real life `logback.xml` would probably look like this (when all options are sp
 ```
 
 See [The logback manual - Chapter 3: Logback configuration](http://logback.qos.ch/manual/configuration.html) for more config options.
+
+## Logback-access support
+
+To use the appender with [Logback-access](https://logback.qos.ch/access.html) the layout class needs to be explicitly specified, 
+otherwise logback-access can't figure it out, and the default EchoLayout is used. Logback-access uses it's own, http-specific version
+of [PatternLayout](https://logback.qos.ch/access.html#configuration). 
+
+For example:
+
+```xml
+<configuration>
+
+    <appender name="AWS_LOGS" class="ca.pjer.logback.AwsLogsAppender">
+        <layout class="ch.qos.logback.access.PatternLayout">
+            <pattern>%h %l %u [%t{ISO8601}] "%r" %s %b "%i{Referer}" "%i{User-Agent}"</pattern>
+        </layout>
+    </appender>
+
+    <root>
+        <appender-ref ref="AWS_LOGS"/>
+    </root>
+
+</configuration>
+```

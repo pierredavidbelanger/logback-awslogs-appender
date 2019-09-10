@@ -1,6 +1,5 @@
 package ca.pjer.logback;
 
-import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.Layout;
 import ch.qos.logback.core.UnsynchronizedAppenderBase;
 import ch.qos.logback.core.layout.EchoLayout;
@@ -9,8 +8,8 @@ import ch.qos.logback.core.status.WarnStatus;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
-    private Layout<ILoggingEvent> layout;
+public class AwsLogsAppender<E> extends UnsynchronizedAppenderBase<E> {
+    private Layout<E> layout;
 
     private String logGroupName;
     private String logStreamName;
@@ -21,15 +20,15 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     private int retentionTimeDays = 0;
 
     private AWSLogsStub awsLogsStub;
-    private Worker worker;
+    private Worker<E> worker;
 
     @SuppressWarnings({"unused", "WeakerAccess"})
-    public Layout<ILoggingEvent> getLayout() {
+    public Layout<E> getLayout() {
         return layout;
     }
 
     @SuppressWarnings({"unused", "WeakerAccess"})
-    public void setLayout(Layout<ILoggingEvent> layout) {
+    public void setLayout(Layout<E> layout) {
         this.layout = layout;
     }
 
@@ -116,7 +115,7 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
         this.awsLogsStub = awsLogsStub;
     }
 
-    void setWorker(Worker worker) {
+    void setWorker(Worker<E> worker) {
         this.worker = worker;
     }
 
@@ -124,7 +123,7 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     public synchronized void start() {
         if (!isStarted()) {
             if (layout == null) {
-                layout = new EchoLayout<ILoggingEvent>();
+                layout = new EchoLayout<>();
                 addStatus(new WarnStatus("No layout, default to " + layout, this));
             }
             if (logGroupName == null) {
@@ -141,9 +140,9 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
                 awsLogsStub.start();
             }
             if (this.worker == null) {
-                Worker worker = maxFlushTimeMillis > 0 ?
-                        new AsyncWorker(this) :
-                        new SyncWorker(this);
+                Worker<E> worker = maxFlushTimeMillis > 0 ?
+                        new AsyncWorker<>(this) :
+                        new SyncWorker<>(this);
                 this.worker = worker;
                 worker.start();
             }
@@ -169,7 +168,7 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     }
 
     @Override
-    protected void append(ILoggingEvent event) {
+    protected void append(E event) {
         if (worker != null) {
             worker.append(event);
         }

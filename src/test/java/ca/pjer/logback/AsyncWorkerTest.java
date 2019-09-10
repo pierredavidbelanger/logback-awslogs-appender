@@ -29,16 +29,16 @@ public class AsyncWorkerTest {
         return event;
     }
 
-    private static AsyncWorker asyncWorker(AWSLogsStub mockedAwsLogsStub, int maxBatchLogEvents, long maxFlushTimeMillis, long maxBlockTimeMillis) {
-        AwsLogsAppender awsLogsAppender = new AwsLogsAppender();
-        awsLogsAppender.setLayout(new EchoLayout<ILoggingEvent>());
+    private static AsyncWorker<ILoggingEvent> asyncWorker(AWSLogsStub mockedAwsLogsStub, int maxBatchLogEvents, long maxFlushTimeMillis, long maxBlockTimeMillis) {
+        AwsLogsAppender<ILoggingEvent> awsLogsAppender = new AwsLogsAppender<>();
+        awsLogsAppender.setLayout(new EchoLayout<>());
         awsLogsAppender.setLogGroupName("FakeGroup");
         awsLogsAppender.setLogStreamName("FakeStream");
         awsLogsAppender.setMaxBatchLogEvents(maxBatchLogEvents);
         awsLogsAppender.setMaxFlushTimeMillis(maxFlushTimeMillis);
         awsLogsAppender.setMaxBlockTimeMillis(maxBlockTimeMillis);
         awsLogsAppender.setAwsLogsStub(mockedAwsLogsStub);
-        AsyncWorker asyncWorker = new AsyncWorker(awsLogsAppender);
+        AsyncWorker<ILoggingEvent> asyncWorker = new AsyncWorker<>(awsLogsAppender);
         awsLogsAppender.setWorker(asyncWorker);
         return asyncWorker;
     }
@@ -46,7 +46,7 @@ public class AsyncWorkerTest {
     @Test
     public void testShouldNotLogWhenStopped() {
         AWSLogsStub mockedAwsLogsStub = mock(AWSLogsStub.class);
-        AsyncWorker asyncWorker = asyncWorker(mockedAwsLogsStub, 1, 1, 5000);
+        AsyncWorker<ILoggingEvent> asyncWorker = asyncWorker(mockedAwsLogsStub, 1, 1, 5000);
         asyncWorker.start();
         asyncWorker.stop();
         asyncWorker.append(dummyEvent());
@@ -56,7 +56,7 @@ public class AsyncWorkerTest {
     @Test
     public void testShouldLogWhenStarted() {
         AWSLogsStub mockedAwsLogsStub = mock(AWSLogsStub.class);
-        AsyncWorker asyncWorker = asyncWorker(mockedAwsLogsStub, 1, 1, 5000);
+        AsyncWorker<ILoggingEvent> asyncWorker = asyncWorker(mockedAwsLogsStub, 1, 1, 5000);
         asyncWorker.start();
         asyncWorker.append(dummyEvent());
         asyncWorker.stop();
@@ -66,7 +66,7 @@ public class AsyncWorkerTest {
     @Test
     public void testShouldLogAfterMaxBatchSize() {
         AWSLogsStub mockedAwsLogsStub = mock(AWSLogsStub.class);
-        AsyncWorker asyncWorker = asyncWorker(mockedAwsLogsStub, 5, Long.MAX_VALUE, 5000);
+        AsyncWorker<ILoggingEvent> asyncWorker = asyncWorker(mockedAwsLogsStub, 5, Long.MAX_VALUE, 5000);
         asyncWorker.start();
         asyncWorker.append(dummyEvent());
         asyncWorker.append(dummyEvent());
@@ -94,7 +94,7 @@ public class AsyncWorkerTest {
     @Test
     public void testShouldLogAfterMaxFlushTimeMillis() {
         AWSLogsStub mockedAwsLogsStub = mock(AWSLogsStub.class);
-        AsyncWorker asyncWorker = asyncWorker(mockedAwsLogsStub, 5, 1000, 5000);
+        AsyncWorker<ILoggingEvent> asyncWorker = asyncWorker(mockedAwsLogsStub, 5, 1000, 5000);
         asyncWorker.start();
         asyncWorker.append(dummyEvent());
         verify(mockedAwsLogsStub, after(1500)).logEvents(anyInputLogEvents());

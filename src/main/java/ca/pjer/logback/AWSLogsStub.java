@@ -26,7 +26,6 @@ class AWSLogsStub {
 
     private AWSLogs awsLogs() {
         return lazyAwsLogs.getOrCompute(() -> {
-            System.out.println("Creating AWSLogs Client");
             AWSLogsClientBuilder builder = AWSLogsClientBuilder.standard();
             Optional.ofNullable(logRegion).ifPresent(builder::setRegion);
 

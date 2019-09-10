@@ -16,7 +16,7 @@ import com.amazonaws.services.logs.model.InputLogEvent;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 
-class AsyncWorker extends Worker implements Runnable {
+class AsyncWorker<E> extends Worker<E> implements Runnable {
 
     private final int maxBatchLogEvents;
     private final int discardThreshold;
@@ -26,12 +26,12 @@ class AsyncWorker extends Worker implements Runnable {
 
     private Thread thread;
 
-    AsyncWorker(AwsLogsAppender awsLogsAppender) {
+    AsyncWorker(AwsLogsAppender<E> awsLogsAppender) {
         super(awsLogsAppender);
         maxBatchLogEvents = awsLogsAppender.getMaxBatchLogEvents();
         discardThreshold = (int) Math.ceil(maxBatchLogEvents * 1.5);
         running = new AtomicBoolean(false);
-        queue = new ArrayBlockingQueue<InputLogEvent>(maxBatchLogEvents * 2);
+        queue = new ArrayBlockingQueue<>(maxBatchLogEvents * 2);
         lostCount = new AtomicLong(0);
     }
 
@@ -66,9 +66,9 @@ class AsyncWorker extends Worker implements Runnable {
     }
 
     @Override
-    public void append(ILoggingEvent event) {
+    public void append(E event) {
         // don't log if discardThreshold is met and event is not important (< WARN)
-        if (queue.size() >= discardThreshold && !event.getLevel().isGreaterOrEqual(Level.WARN)) {
+        if (queue.size() >= discardThreshold && !isImportant(event)) {
             lostCount.incrementAndGet();
             synchronized (running) {
                 running.notifyAll();
@@ -130,6 +130,14 @@ class AsyncWorker extends Worker implements Runnable {
         flush(true);
     }
 
+    private boolean isImportant(E event) {
+        if (event instanceof ILoggingEvent) {
+            return ((ILoggingEvent) event).getLevel().isGreaterOrEqual(Level.WARN);
+        } else {
+            return false;
+        }
+    }
+
     private void flush(boolean all) {
         try {
             long lostCount = this.lostCount.getAndSet(0);
@@ -146,12 +154,12 @@ class AsyncWorker extends Worker implements Runnable {
             getAwsLogsAppender().addError("Unable to flush events to AWS", e);
         }
     }
-    
+
     // See http://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutLogEvents.html
     private static final int MAX_BATCH_SIZE = 1048576;
 
     private Collection<InputLogEvent> drainBatchFromQueue() {
-        Deque<InputLogEvent> batch = new ArrayDeque<InputLogEvent>(maxBatchLogEvents);
+        Deque<InputLogEvent> batch = new ArrayDeque<>(maxBatchLogEvents);
         queue.drainTo(batch, MAX_BATCH_LOG_EVENTS);
         int batchSize = batchSize(batch);
         while (batchSize > MAX_BATCH_SIZE) {
@@ -163,7 +171,7 @@ class AsyncWorker extends Worker implements Runnable {
         }
         return batch;
     }
-    
+
     private static int batchSize(Collection<InputLogEvent> batch) {
         int size = 0;
         for (InputLogEvent event : batch) {

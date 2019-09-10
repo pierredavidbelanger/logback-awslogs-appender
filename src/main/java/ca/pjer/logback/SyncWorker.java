@@ -1,17 +1,15 @@
 package ca.pjer.logback;
 
-import ch.qos.logback.classic.spi.ILoggingEvent;
-
 import java.util.Collections;
 
-class SyncWorker extends Worker {
+class SyncWorker<E> extends Worker<E> {
 
-    SyncWorker(AwsLogsAppender awsLogsAppender) {
+    SyncWorker(AwsLogsAppender<E> awsLogsAppender) {
         super(awsLogsAppender);
     }
 
     @Override
-    public synchronized void append(ILoggingEvent event) {
+    public synchronized void append(E event) {
         getAwsLogsAppender().getAwsLogsStub().logEvents(Collections.singleton(asInputLogEvent(event)));
     }
 }

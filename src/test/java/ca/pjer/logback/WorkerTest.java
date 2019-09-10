@@ -27,13 +27,13 @@ public class WorkerTest {
     private static final Layout<ILoggingEvent> LAYOUT = new EchoLayout<ILoggingEvent>();
     private static final int LAYOUT_OFFSET = LAYOUT.doLayout(asEvent("")).length();
     private static final int MESSAGE_SIZE_LIMIT = 262144 - 26 - LAYOUT_OFFSET;
-    private Worker worker;
+    private Worker<ILoggingEvent> worker;
 
     @Before
     public void setWorker() {
-        AwsLogsAppender awsLogsAppender = new AwsLogsAppender();
+        AwsLogsAppender<ILoggingEvent> awsLogsAppender = new AwsLogsAppender<>();
         awsLogsAppender.setLayout(LAYOUT);
-        worker = new SyncWorker(awsLogsAppender);
+        worker = new SyncWorker<>(awsLogsAppender);
     }
 
     @DataPoints("UNTRIMMED")
@@ -46,7 +46,7 @@ public class WorkerTest {
         InputLogEvent event = worker.asInputLogEvent(asEvent(message));
         assertFalse(event.getMessage().endsWith("..."));
     }
-    
+
     @DataPoints("TRIMMED")
     public static final String[] TRIMMED = {
             repeat("x", MESSAGE_SIZE_LIMIT + 1),
@@ -60,7 +60,7 @@ public class WorkerTest {
         InputLogEvent event = worker.asInputLogEvent(asEvent(message));
         assertTrue(event.getMessage().endsWith("..."));
     }
-    
+
     @DataPoints("TRIMMED_MB")
     public static final String[] TRIMMED_MB = {
             repeat("x", MESSAGE_SIZE_LIMIT - 9) + "öööööööööö",

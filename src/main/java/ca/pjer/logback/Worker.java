@@ -1,16 +1,15 @@
 package ca.pjer.logback;
 
-import ch.qos.logback.classic.spi.ILoggingEvent;
-
+import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.Charset;
 
 import com.amazonaws.services.logs.model.InputLogEvent;
 
-abstract class Worker {
+abstract class Worker<E> {
 
-    private AwsLogsAppender awsLogsAppender;
+    private AwsLogsAppender<E> awsLogsAppender;
 
-    Worker(AwsLogsAppender awsLogsAppender) {
+    Worker(AwsLogsAppender<E> awsLogsAppender) {
         this.awsLogsAppender = awsLogsAppender;
     }
 
@@ -24,13 +23,21 @@ abstract class Worker {
     public synchronized void stop() {
     }
 
-    public abstract void append(ILoggingEvent event);
+    public abstract void append(E event);
 
     // See https://github.com/pierredavidbelanger/logback-awslogs-appender/issues/6
     private static final int MAX_EVENT_SIZE = 262144;
 
-    InputLogEvent asInputLogEvent(ILoggingEvent event) {
-        InputLogEvent inputLogEvent = new InputLogEvent().withTimestamp(event.getTimeStamp())
+    InputLogEvent asInputLogEvent(E event) {
+        long timestamp;
+        try {
+            // get timestamp by reflection to avoid dependency to logback-access-library
+            timestamp = (long) event.getClass().getMethod("getTimeStamp").invoke(event);
+        } catch (NoSuchMethodException | SecurityException | IllegalAccessException | InvocationTargetException e) {
+            timestamp = System.currentTimeMillis();
+        }
+
+        InputLogEvent inputLogEvent = new InputLogEvent().withTimestamp(timestamp)
                 .withMessage(awsLogsAppender.getLayout().doLayout(event));
 
         if (eventSize(inputLogEvent) > MAX_EVENT_SIZE) {
