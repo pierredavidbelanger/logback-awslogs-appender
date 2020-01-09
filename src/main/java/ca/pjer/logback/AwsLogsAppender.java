@@ -8,6 +8,7 @@ import ch.qos.logback.core.status.WarnStatus;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Objects;
 
 public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     private Layout<ILoggingEvent> layout;
@@ -15,6 +16,7 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     private String logGroupName;
     private String logStreamName;
     private String logRegion;
+    private String cloudWatchEndpoint;
     private int maxBatchLogEvents = 50;
     private long maxFlushTimeMillis = 0;
     private long maxBlockTimeMillis = 5000;
@@ -120,6 +122,16 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
         this.worker = worker;
     }
 
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public String getCloudWatchEndpoint() {
+        return cloudWatchEndpoint;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setCloudWatchEndpoint(String cloudWatchEndpoint) {
+        this.cloudWatchEndpoint = cloudWatchEndpoint;
+    }
+
     @Override
     public synchronized void start() {
         if (!isStarted()) {
@@ -136,7 +148,14 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
                 addStatus(new WarnStatus("No logStreamName, default to " + logStreamName, this));
             }
             if (this.awsLogsStub == null) {
-                AWSLogsStub awsLogsStub = new AWSLogsStub(logGroupName, logStreamName, logRegion, retentionTimeDays);
+                AWSLogsStub awsLogsStub;
+
+                if (Objects.nonNull(cloudWatchEndpoint) && !cloudWatchEndpoint.trim().isEmpty()) {
+                    awsLogsStub = new AWSLogsStub(logGroupName, logStreamName, logRegion, retentionTimeDays, cloudWatchEndpoint);
+                } else {
+                    awsLogsStub = new AWSLogsStub(logGroupName, logStreamName, logRegion, retentionTimeDays);
+                }
+
                 this.awsLogsStub = awsLogsStub;
                 awsLogsStub.start();
             }
