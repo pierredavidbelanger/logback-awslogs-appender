@@ -1,5 +1,6 @@
 package ca.pjer.logback;
 
+import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.logs.AWSLogs;
 import com.amazonaws.services.logs.AWSLogsClientBuilder;
 import com.amazonaws.services.logs.model.*;
@@ -11,6 +12,7 @@ class AWSLogsStub {
     private final String logGroupName;
     private final String logStreamName;
     private final String logRegion;
+    private String cloudWatchEndpoint;
     private String sequenceToken;
     private Long lastTimestamp;
     private int retentionTimeInDays;
@@ -24,11 +26,27 @@ class AWSLogsStub {
         this.retentionTimeInDays = retentionTimeInDays;
     }
 
+    AWSLogsStub(String logGroupName, String logStreamName, String logRegion, int retentionTimeInDays, String cloudWatchEndpoint) {
+        this.logGroupName = logGroupName;
+        this.logStreamName = logStreamName;
+        this.logRegion = logRegion;
+        this.retentionTimeInDays = retentionTimeInDays;
+        this.cloudWatchEndpoint = cloudWatchEndpoint;
+    }
+
+
     private AWSLogs awsLogs() {
         return lazyAwsLogs.getOrCompute(() -> {
             System.out.println("Creating AWSLogs Client");
             AWSLogsClientBuilder builder = AWSLogsClientBuilder.standard();
-            Optional.ofNullable(logRegion).ifPresent(builder::setRegion);
+
+            if (Objects.nonNull(cloudWatchEndpoint)) {
+                AwsClientBuilder.EndpointConfiguration endpointConfiguration = new AwsClientBuilder.EndpointConfiguration(
+                        cloudWatchEndpoint, logRegion);
+                builder.setEndpointConfiguration(endpointConfiguration);
+            } else {
+                Optional.ofNullable(logRegion).ifPresent(builder::setRegion);
+            }
 
             AWSLogs awsLogs = builder.build();
             initLogGroup(awsLogs);
