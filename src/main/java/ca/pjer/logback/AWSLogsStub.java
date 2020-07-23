@@ -62,11 +62,19 @@ class AWSLogsStub {
             }
         } catch (ResourceAlreadyExistsException e) {
             // ignore
+        } catch (Throwable t) {
+            if (verbose) {
+                t.printStackTrace();
+            }
         }
         try {
             awsLogs.createLogStream(new CreateLogStreamRequest().withLogGroupName(logGroupName).withLogStreamName(logStreamName));
         } catch (ResourceAlreadyExistsException e) {
             // ignore
+        } catch (Throwable t) {
+            if (verbose) {
+                t.printStackTrace();
+            }
         }
     }
 
@@ -114,6 +122,9 @@ class AWSLogsStub {
             sequenceToken = e.getExpectedSequenceToken();
             logPreparedEvents(events);
         } catch (Throwable t) {
+            if (verbose) {
+                t.printStackTrace();
+            }
             AwsLogsMetricsHolder.get().incrementPutLogFailed(t);
             throw t;
         }
