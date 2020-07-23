@@ -121,8 +121,8 @@ A real life `logback.xml` would probably look like this (when all options are sp
         <!-- Hardcoded Log Group Name -->
         <logGroupName>/com/acme/myapp</logGroupName>
         
-        <!-- Timestamped Log Stream Name -->
-        <logStreamName>mystream-${timestamp}</logStreamName>
+        <!-- Log Stream Name UUID Prefix -->
+        <logStreamUuidPrefix>mystream/</logStreamUuidPrefix>
         
         <!-- Hardcoded AWS region -->
         <!-- So even when running inside an AWS instance in us-west-1, logs will go to us-west-2 -->
