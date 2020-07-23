@@ -9,12 +9,14 @@ import ch.qos.logback.core.status.WarnStatus;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Objects;
+import java.util.UUID;
 
 public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     private Layout<ILoggingEvent> layout;
 
     private String logGroupName;
     private String logStreamName;
+    private String logStreamUuidPrefix;
     private String logRegion;
     private String cloudWatchEndpoint;
     private int maxBatchLogEvents = 50;
@@ -64,6 +66,18 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     @SuppressWarnings({"unused", "WeakerAccess"})
     public void setLogStreamName(String logStreamName) {
         this.logStreamName = logStreamName;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public String getLogStreamUuidPrefix() {
+        return logStreamUuidPrefix;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setLogStreamUuidPrefix(String logStreamUuidPrefix) {
+        if (isNotBlank(logStreamUuidPrefix)) {
+            this.logStreamUuidPrefix = logStreamUuidPrefix;
+        }
     }
 
     @SuppressWarnings({"unused", "WeakerAccess"})
@@ -140,7 +154,7 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
 
     @SuppressWarnings({"unused", "WeakerAccess"})
     public void setCloudWatchEndpoint(String cloudWatchEndpoint) {
-        if (Objects.nonNull(cloudWatchEndpoint) && !cloudWatchEndpoint.trim().isEmpty()) {
+        if (isNotBlank(cloudWatchEndpoint)) {
             this.cloudWatchEndpoint = cloudWatchEndpoint;
         }
     }
@@ -167,8 +181,12 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
                 addStatus(new WarnStatus("No logGroupName, default to " + logGroupName, this));
             }
             if (logStreamName == null) {
-                logStreamName = new SimpleDateFormat("yyyyMMdd'T'HHmmss").format(new Date());
-                addStatus(new WarnStatus("No logStreamName, default to " + logStreamName, this));
+                if (logStreamUuidPrefix != null) {
+                    logStreamName = String.format("%s%s", logStreamUuidPrefix, UUID.randomUUID().toString());
+                } else {
+                    logStreamName = new SimpleDateFormat("yyyyMMdd'T'HHmmss").format(new Date());
+                    addStatus(new WarnStatus("No logStreamName, default to " + logStreamName, this));
+                }
             }
             if (this.awsLogsStub == null) {
                 this.awsLogsStub = new AWSLogsStub(logGroupName, logStreamName, logRegion, retentionTimeDays, cloudWatchEndpoint, verbose);
@@ -207,5 +225,9 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
         if (worker != null) {
             worker.append(event);
         }
+    }
+
+    private static boolean isNotBlank(String text) {
+        return Objects.nonNull(text) && !text.trim().isEmpty();
     }
 }
