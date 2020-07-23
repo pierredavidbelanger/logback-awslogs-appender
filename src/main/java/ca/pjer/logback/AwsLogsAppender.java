@@ -21,9 +21,20 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     private long maxFlushTimeMillis = 0;
     private long maxBlockTimeMillis = 5000;
     private int retentionTimeDays = 0;
+    private boolean verbose = true;
 
     private AWSLogsStub awsLogsStub;
     private Worker worker;
+
+    private static volatile boolean created;
+
+    {
+        created = true;
+    }
+
+    public static boolean isCreated() {
+        return created;
+    }
 
     @SuppressWarnings({"unused", "WeakerAccess"})
     public Layout<ILoggingEvent> getLayout() {
@@ -129,7 +140,19 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
 
     @SuppressWarnings({"unused", "WeakerAccess"})
     public void setCloudWatchEndpoint(String cloudWatchEndpoint) {
-        this.cloudWatchEndpoint = cloudWatchEndpoint;
+        if (Objects.nonNull(cloudWatchEndpoint) && !cloudWatchEndpoint.trim().isEmpty()) {
+            this.cloudWatchEndpoint = cloudWatchEndpoint;
+        }
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public boolean getVerbose() {
+        return verbose;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setVerbose(boolean verbose) {
+        this.verbose = verbose;
     }
 
     @Override
@@ -148,16 +171,8 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
                 addStatus(new WarnStatus("No logStreamName, default to " + logStreamName, this));
             }
             if (this.awsLogsStub == null) {
-                AWSLogsStub awsLogsStub;
-
-                if (Objects.nonNull(cloudWatchEndpoint) && !cloudWatchEndpoint.trim().isEmpty()) {
-                    awsLogsStub = new AWSLogsStub(logGroupName, logStreamName, logRegion, retentionTimeDays, cloudWatchEndpoint);
-                } else {
-                    awsLogsStub = new AWSLogsStub(logGroupName, logStreamName, logRegion, retentionTimeDays);
-                }
-
-                this.awsLogsStub = awsLogsStub;
-                awsLogsStub.start();
+                this.awsLogsStub = new AWSLogsStub(logGroupName, logStreamName, logRegion, retentionTimeDays, cloudWatchEndpoint, verbose);
+                this.awsLogsStub.start();
             }
             if (this.worker == null) {
                 Worker worker = maxFlushTimeMillis > 0 ?

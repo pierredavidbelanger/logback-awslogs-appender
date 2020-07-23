@@ -1,5 +1,6 @@
 package ca.pjer.logback;
 
+import ca.pjer.logback.metrics.AwsLogsMetricsHolder;
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.logs.AWSLogs;
 import com.amazonaws.services.logs.AWSLogsClientBuilder;
@@ -12,32 +13,29 @@ class AWSLogsStub {
     private final String logGroupName;
     private final String logStreamName;
     private final String logRegion;
-    private String cloudWatchEndpoint;
+    private final String cloudWatchEndpoint;
+    private final boolean verbose;
     private String sequenceToken;
     private Long lastTimestamp;
     private int retentionTimeInDays;
 
     private final Lazy<AWSLogs> lazyAwsLogs = new Lazy<>();
 
-    AWSLogsStub(String logGroupName, String logStreamName, String logRegion, int retentionTimeInDays) {
-        this.logGroupName = logGroupName;
-        this.logStreamName = logStreamName;
-        this.logRegion = logRegion;
-        this.retentionTimeInDays = retentionTimeInDays;
-    }
-
-    AWSLogsStub(String logGroupName, String logStreamName, String logRegion, int retentionTimeInDays, String cloudWatchEndpoint) {
+    AWSLogsStub(String logGroupName, String logStreamName, String logRegion, int retentionTimeInDays, String cloudWatchEndpoint, boolean verbose) {
         this.logGroupName = logGroupName;
         this.logStreamName = logStreamName;
         this.logRegion = logRegion;
         this.retentionTimeInDays = retentionTimeInDays;
         this.cloudWatchEndpoint = cloudWatchEndpoint;
+        this.verbose = verbose;
     }
 
 
     private AWSLogs awsLogs() {
         return lazyAwsLogs.getOrCompute(() -> {
-            System.out.println("Creating AWSLogs Client");
+            if (verbose) {
+                System.out.println("Creating AWSLogs Client");
+            }
             AWSLogsClientBuilder builder = AWSLogsClientBuilder.standard();
 
             if (Objects.nonNull(cloudWatchEndpoint)) {
@@ -96,6 +94,8 @@ class AWSLogsStub {
                 lastTimestamp = event.getTimestamp();
             }
         }
+        AwsLogsMetricsHolder.get().incrementLogEvents(events.size());
+        AwsLogsMetricsHolder.get().incrementPutLog();
         logPreparedEvents(events);
     }
 
@@ -113,6 +113,9 @@ class AWSLogsStub {
         } catch (InvalidSequenceTokenException e) {
             sequenceToken = e.getExpectedSequenceToken();
             logPreparedEvents(events);
+        } catch (Throwable t) {
+            AwsLogsMetricsHolder.get().incrementPutLogFailed(t);
+            throw t;
         }
     }
 }
