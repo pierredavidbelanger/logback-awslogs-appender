@@ -3,9 +3,11 @@ package ca.pjer.logback;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.Layout;
 import ch.qos.logback.core.UnsynchronizedAppenderBase;
+import ch.qos.logback.core.encoder.Encoder;
 import ch.qos.logback.core.layout.EchoLayout;
 import ch.qos.logback.core.status.WarnStatus;
 
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Objects;
@@ -13,6 +15,7 @@ import java.util.UUID;
 
 public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     private Layout<ILoggingEvent> layout;
+    private Encoder<ILoggingEvent> encoder;
 
     private String logGroupName;
     private String logStreamName;
@@ -46,6 +49,16 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     @SuppressWarnings({"unused", "WeakerAccess"})
     public void setLayout(Layout<ILoggingEvent> layout) {
         this.layout = layout;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public Encoder<ILoggingEvent> getEncoder() {
+        return encoder;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setEncoder(Encoder<ILoggingEvent> encoder) {
+        this.encoder = encoder;
     }
 
     @SuppressWarnings({"unused", "WeakerAccess"})
@@ -225,6 +238,18 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
         if (worker != null) {
             worker.append(event);
         }
+    }
+
+    public String encode(ILoggingEvent loggingEvent) {
+        if (encoder != null) {
+            return bytesUtf8ToString(encoder.encode(loggingEvent));
+        }
+
+        return layout.doLayout(loggingEvent);
+    }
+
+    private String bytesUtf8ToString(byte[] bytes) {
+        return new String(bytes, StandardCharsets.UTF_8);
     }
 
     private static boolean isNotBlank(String text) {
