@@ -25,7 +25,7 @@ Thank you for your help:
         <dependency>
             <groupId>ca.pjer</groupId>
             <artifactId>logback-awslogs-appender</artifactId>
-            <version>1.3.0</version>
+            <version>1.4.0</version>
         </dependency>
     </dependencies>
 </project>
