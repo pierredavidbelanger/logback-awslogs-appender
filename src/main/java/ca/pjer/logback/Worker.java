@@ -31,7 +31,7 @@ abstract class Worker {
 
     InputLogEvent asInputLogEvent(ILoggingEvent event) {
         InputLogEvent inputLogEvent = new InputLogEvent().withTimestamp(event.getTimeStamp())
-                .withMessage(awsLogsAppender.getLayout().doLayout(event));
+                .withMessage(awsLogsAppender.encode(event));
 
         if (eventSize(inputLogEvent) > MAX_EVENT_SIZE) {
             awsLogsAppender

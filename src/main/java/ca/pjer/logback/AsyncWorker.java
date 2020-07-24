@@ -11,6 +11,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+import ca.pjer.logback.metrics.AwsLogsMetricsHolder;
 import com.amazonaws.services.logs.model.InputLogEvent;
 
 import ch.qos.logback.classic.Level;
@@ -70,6 +71,7 @@ class AsyncWorker extends Worker implements Runnable {
         // don't log if discardThreshold is met and event is not important (< WARN)
         if (queue.size() >= discardThreshold && !event.getLevel().isGreaterOrEqual(Level.WARN)) {
             lostCount.incrementAndGet();
+            AwsLogsMetricsHolder.get().incrementLostCount();
             synchronized (running) {
                 running.notifyAll();
             }
@@ -87,6 +89,7 @@ class AsyncWorker extends Worker implements Runnable {
                     try {
                         if (!queue.offer(logEvent, until - now, TimeUnit.MILLISECONDS)) {
                             lostCount.incrementAndGet();
+                            AwsLogsMetricsHolder.get().incrementLostCount();
                         }
                         break;
                     } catch (InterruptedException e) {
@@ -103,6 +106,7 @@ class AsyncWorker extends Worker implements Runnable {
             // we are not allowed to block, offer without blocking
             if (!queue.offer(logEvent)) {
                 lostCount.incrementAndGet();
+                AwsLogsMetricsHolder.get().incrementLostCount();
             }
         }
         // trigger a flush if queue is full
@@ -134,7 +138,9 @@ class AsyncWorker extends Worker implements Runnable {
         try {
             long lostCount = this.lostCount.getAndSet(0);
             if (lostCount > 0) {
-                getAwsLogsAppender().addWarn(lostCount + " events lost");
+                if (getAwsLogsAppender().getVerbose()) {
+                    getAwsLogsAppender().addWarn(lostCount + " events lost");
+                }
             }
             if (!queue.isEmpty()) {
                 do {
@@ -143,7 +149,10 @@ class AsyncWorker extends Worker implements Runnable {
                 } while (queue.size() >= maxBatchLogEvents || (all && !queue.isEmpty()));
             }
         } catch (Exception e) {
-            getAwsLogsAppender().addError("Unable to flush events to AWS", e);
+            AwsLogsMetricsHolder.get().incrementFlushFailed(e);
+            if (getAwsLogsAppender().getVerbose()) {
+                getAwsLogsAppender().addError("Unable to flush events to AWS", e);
+            }
         }
     }
     
@@ -158,9 +167,14 @@ class AsyncWorker extends Worker implements Runnable {
             InputLogEvent removed = batch.removeLast();
             batchSize -= eventSize(removed);
             if (!queue.offer(removed)) {
-                getAwsLogsAppender().addWarn("Failed requeing message from too big batch");
+                AwsLogsMetricsHolder.get().incrementBatchRequeueFailed();
+                if (getAwsLogsAppender().getVerbose()) {
+                    getAwsLogsAppender().addWarn("Failed requeuing message from too big batch");
+                }
             }
         }
+
+        AwsLogsMetricsHolder.get().incrementBatch(batchSize);
         return batch;
     }
     

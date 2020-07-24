@@ -3,27 +3,43 @@ package ca.pjer.logback;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.Layout;
 import ch.qos.logback.core.UnsynchronizedAppenderBase;
+import ch.qos.logback.core.encoder.Encoder;
 import ch.qos.logback.core.layout.EchoLayout;
 import ch.qos.logback.core.status.WarnStatus;
 
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Objects;
+import java.util.UUID;
 
 public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     private Layout<ILoggingEvent> layout;
+    private Encoder<ILoggingEvent> encoder;
 
     private String logGroupName;
     private String logStreamName;
+    private String logStreamUuidPrefix;
     private String logRegion;
     private String cloudWatchEndpoint;
     private int maxBatchLogEvents = 50;
     private long maxFlushTimeMillis = 0;
     private long maxBlockTimeMillis = 5000;
     private int retentionTimeDays = 0;
+    private boolean verbose = true;
 
     private AWSLogsStub awsLogsStub;
     private Worker worker;
+
+    private static volatile boolean created;
+
+    {
+        created = true;
+    }
+
+    public static boolean isCreated() {
+        return created;
+    }
 
     @SuppressWarnings({"unused", "WeakerAccess"})
     public Layout<ILoggingEvent> getLayout() {
@@ -33,6 +49,16 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     @SuppressWarnings({"unused", "WeakerAccess"})
     public void setLayout(Layout<ILoggingEvent> layout) {
         this.layout = layout;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public Encoder<ILoggingEvent> getEncoder() {
+        return encoder;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setEncoder(Encoder<ILoggingEvent> encoder) {
+        this.encoder = encoder;
     }
 
     @SuppressWarnings({"unused", "WeakerAccess"})
@@ -53,6 +79,18 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     @SuppressWarnings({"unused", "WeakerAccess"})
     public void setLogStreamName(String logStreamName) {
         this.logStreamName = logStreamName;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public String getLogStreamUuidPrefix() {
+        return logStreamUuidPrefix;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setLogStreamUuidPrefix(String logStreamUuidPrefix) {
+        if (isNotBlank(logStreamUuidPrefix)) {
+            this.logStreamUuidPrefix = logStreamUuidPrefix;
+        }
     }
 
     @SuppressWarnings({"unused", "WeakerAccess"})
@@ -129,7 +167,19 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
 
     @SuppressWarnings({"unused", "WeakerAccess"})
     public void setCloudWatchEndpoint(String cloudWatchEndpoint) {
-        this.cloudWatchEndpoint = cloudWatchEndpoint;
+        if (isNotBlank(cloudWatchEndpoint)) {
+            this.cloudWatchEndpoint = cloudWatchEndpoint;
+        }
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public boolean getVerbose() {
+        return verbose;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setVerbose(boolean verbose) {
+        this.verbose = verbose;
     }
 
     @Override
@@ -144,20 +194,16 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
                 addStatus(new WarnStatus("No logGroupName, default to " + logGroupName, this));
             }
             if (logStreamName == null) {
-                logStreamName = new SimpleDateFormat("yyyyMMdd'T'HHmmss").format(new Date());
-                addStatus(new WarnStatus("No logStreamName, default to " + logStreamName, this));
+                if (logStreamUuidPrefix != null) {
+                    logStreamName = String.format("%s%s", logStreamUuidPrefix, UUID.randomUUID().toString());
+                } else {
+                    logStreamName = new SimpleDateFormat("yyyyMMdd'T'HHmmss").format(new Date());
+                    addStatus(new WarnStatus("No logStreamName, default to " + logStreamName, this));
+                }
             }
             if (this.awsLogsStub == null) {
-                AWSLogsStub awsLogsStub;
-
-                if (Objects.nonNull(cloudWatchEndpoint) && !cloudWatchEndpoint.trim().isEmpty()) {
-                    awsLogsStub = new AWSLogsStub(logGroupName, logStreamName, logRegion, retentionTimeDays, cloudWatchEndpoint);
-                } else {
-                    awsLogsStub = new AWSLogsStub(logGroupName, logStreamName, logRegion, retentionTimeDays);
-                }
-
-                this.awsLogsStub = awsLogsStub;
-                awsLogsStub.start();
+                this.awsLogsStub = new AWSLogsStub(logGroupName, logStreamName, logRegion, retentionTimeDays, cloudWatchEndpoint, verbose);
+                this.awsLogsStub.start();
             }
             if (this.worker == null) {
                 Worker worker = maxFlushTimeMillis > 0 ?
@@ -192,5 +238,21 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
         if (worker != null) {
             worker.append(event);
         }
+    }
+
+    public String encode(ILoggingEvent loggingEvent) {
+        if (encoder != null) {
+            return bytesUtf8ToString(encoder.encode(loggingEvent));
+        }
+
+        return layout.doLayout(loggingEvent);
+    }
+
+    private String bytesUtf8ToString(byte[] bytes) {
+        return new String(bytes, StandardCharsets.UTF_8);
+    }
+
+    private static boolean isNotBlank(String text) {
+        return Objects.nonNull(text) && !text.trim().isEmpty();
     }
 }
