@@ -1,15 +1,17 @@
 package ca.pjer.logback;
 
 import ca.pjer.logback.metrics.AwsLogsMetricsHolder;
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.logs.AWSLogs;
-import com.amazonaws.services.logs.AWSLogsClientBuilder;
-import com.amazonaws.services.logs.model.*;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClient;
+import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClientBuilder;
+import software.amazon.awssdk.services.cloudwatchlogs.model.*;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.*;
 
 class AWSLogsStub {
-    private final Comparator<InputLogEvent> inputLogEventByTimestampComparator = Comparator.comparing(InputLogEvent::getTimestamp);
+    private final Comparator<InputLogEvent> inputLogEventByTimestampComparator = Comparator.comparing(InputLogEvent::timestamp);
     private final String logGroupName;
     private final String logStreamName;
     private final String logRegion;
@@ -19,7 +21,7 @@ class AWSLogsStub {
     private Long lastTimestamp;
     private int retentionTimeInDays;
 
-    private final Lazy<AWSLogs> lazyAwsLogs = new Lazy<>();
+    private final Lazy<CloudWatchLogsClient> lazyAwsLogs = new Lazy<>();
 
     AWSLogsStub(String logGroupName, String logStreamName, String logRegion, int retentionTimeInDays, String cloudWatchEndpoint, boolean verbose) {
         this.logGroupName = logGroupName;
@@ -31,34 +33,44 @@ class AWSLogsStub {
     }
 
 
-    private AWSLogs awsLogs() {
+    private CloudWatchLogsClient awsLogs() {
         return lazyAwsLogs.getOrCompute(() -> {
             if (verbose) {
                 System.out.println("Creating AWSLogs Client");
             }
-            AWSLogsClientBuilder builder = AWSLogsClientBuilder.standard();
+
+            CloudWatchLogsClientBuilder builder = CloudWatchLogsClient.builder();
 
             if (Objects.nonNull(cloudWatchEndpoint)) {
-                AwsClientBuilder.EndpointConfiguration endpointConfiguration = new AwsClientBuilder.EndpointConfiguration(
-                        cloudWatchEndpoint, logRegion);
-                builder.setEndpointConfiguration(endpointConfiguration);
-            } else {
-                Optional.ofNullable(logRegion).ifPresent(builder::setRegion);
+                try {
+                    builder = builder.endpointOverride(new URI(cloudWatchEndpoint));
+                } catch (URISyntaxException e) {
+                    if (verbose) {
+                        System.out.println("Invalid endpoint endpoint URL: "  + cloudWatchEndpoint);
+                    }
+                }
             }
 
-            AWSLogs awsLogs = builder.build();
+            if (Objects.nonNull(logRegion)) {
+                builder = builder.region(Region.of(logRegion));
+            }
+
+            CloudWatchLogsClient awsLogs = builder.build();
             initLogGroup(awsLogs);
             return awsLogs;
         });
     }
 
-    private void initLogGroup(AWSLogs awsLogs) {
+    private void initLogGroup(CloudWatchLogsClient awsLogs) {
         try {
-            awsLogs.createLogGroup(new CreateLogGroupRequest().withLogGroupName(logGroupName));
+            awsLogs.createLogGroup(CreateLogGroupRequest.builder()
+                    .logGroupName(logGroupName)
+                    .build());
             if(retentionTimeInDays > 0) {
-                awsLogs.putRetentionPolicy(new PutRetentionPolicyRequest()
-                        .withLogGroupName(logGroupName)
-                        .withRetentionInDays(retentionTimeInDays));
+                awsLogs.putRetentionPolicy(PutRetentionPolicyRequest.builder()
+                        .logGroupName(logGroupName)
+                        .retentionInDays(retentionTimeInDays)
+                        .build());
             }
         } catch (ResourceAlreadyExistsException e) {
             // ignore
@@ -68,7 +80,10 @@ class AWSLogsStub {
             }
         }
         try {
-            awsLogs.createLogStream(new CreateLogStreamRequest().withLogGroupName(logGroupName).withLogStreamName(logStreamName));
+            awsLogs.createLogStream(CreateLogStreamRequest.builder()
+                    .logGroupName(logGroupName)
+                    .logStreamName(logStreamName)
+                    .build());
         } catch (ResourceAlreadyExistsException e) {
             // ignore
         } catch (Throwable t) {
@@ -83,7 +98,7 @@ class AWSLogsStub {
 
     synchronized void stop() {
         try {
-            awsLogs().shutdown();
+            awsLogs().close();
         } catch (Exception e) {
             // ignore
         }
@@ -95,11 +110,15 @@ class AWSLogsStub {
             Collections.sort(sortedEvents, inputLogEventByTimestampComparator);
             events = sortedEvents;
         }
+
         for (InputLogEvent event : events) {
-            if (lastTimestamp != null && event.getTimestamp() < lastTimestamp) {
-                event.setTimestamp(lastTimestamp);
+            if (lastTimestamp != null && event.timestamp() < lastTimestamp) {
+                events.remove(event);
+                events.add(event.toBuilder()
+                    .timestamp(lastTimestamp)
+                    .build());
             } else {
-                lastTimestamp = event.getTimestamp();
+                lastTimestamp = event.timestamp();
             }
         }
         AwsLogsMetricsHolder.get().incrementLogEvents(events.size());
@@ -109,17 +128,18 @@ class AWSLogsStub {
 
     private void logPreparedEvents(Collection<InputLogEvent> events) {
         try {
-            PutLogEventsRequest request = new PutLogEventsRequest()
-                    .withLogGroupName(logGroupName)
-                    .withLogStreamName(logStreamName)
-                    .withSequenceToken(sequenceToken)
-                    .withLogEvents(events);
-            PutLogEventsResult result = awsLogs().putLogEvents(request);
-            sequenceToken = result.getNextSequenceToken();
+            PutLogEventsRequest request = PutLogEventsRequest.builder()
+                    .logGroupName(logGroupName)
+                    .logStreamName(logStreamName)
+                    .sequenceToken(sequenceToken)
+                    .logEvents(events)
+                    .build();
+            PutLogEventsResponse result = awsLogs().putLogEvents(request);
+            sequenceToken = result.nextSequenceToken();
         } catch (DataAlreadyAcceptedException e) {
-            sequenceToken = e.getExpectedSequenceToken();
+            sequenceToken = e.expectedSequenceToken();
         } catch (InvalidSequenceTokenException e) {
-            sequenceToken = e.getExpectedSequenceToken();
+            sequenceToken = e.expectedSequenceToken();
             logPreparedEvents(events);
         } catch (Throwable t) {
             if (verbose) {

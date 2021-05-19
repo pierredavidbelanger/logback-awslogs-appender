@@ -12,14 +12,13 @@ import org.junit.experimental.theories.Theories;
 import org.junit.experimental.theories.Theory;
 import org.junit.runner.RunWith;
 
-import com.amazonaws.services.logs.model.InputLogEvent;
-
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.LoggingEvent;
 import ch.qos.logback.core.Layout;
 import ch.qos.logback.core.layout.EchoLayout;
+import software.amazon.awssdk.services.cloudwatchlogs.model.InputLogEvent;
 
 @RunWith(Theories.class)
 public class WorkerTest {
@@ -44,7 +43,7 @@ public class WorkerTest {
     @Theory
     public void eventShouldNotBeTrimmed(@FromDataPoints("UNTRIMMED") String message) {
         InputLogEvent event = worker.asInputLogEvent(asEvent(message));
-        assertFalse(event.getMessage().endsWith("..."));
+        assertFalse(event.message().endsWith("..."));
     }
     
     @DataPoints("TRIMMED")
@@ -58,7 +57,7 @@ public class WorkerTest {
     @Theory
     public void eventShouldBeTrimmed(@FromDataPoints("TRIMMED") String message) {
         InputLogEvent event = worker.asInputLogEvent(asEvent(message));
-        assertTrue(event.getMessage().endsWith("..."));
+        assertTrue(event.message().endsWith("..."));
     }
     
     @DataPoints("TRIMMED_MB")
@@ -70,13 +69,13 @@ public class WorkerTest {
     @Theory
     public void trimmingShouldNotChopMultibyteCharacter(@FromDataPoints("TRIMMED_MB") String message) {
         InputLogEvent event = worker.asInputLogEvent(asEvent(message));
-        assertTrue(event.getMessage().endsWith("ö..."));
+        assertTrue(event.message().endsWith("ö..."));
     }
 
     @Theory
     public void eventShouldNeverExceed262144Bytes(String message) throws UnsupportedEncodingException {
         InputLogEvent event = worker.asInputLogEvent(asEvent(message));
-        int eventSize = event.getMessage().getBytes("UTF-8").length + 26;
+        int eventSize = event.message().getBytes("UTF-8").length + 26;
         assertTrue(eventSize <= 262144);
     }
 
