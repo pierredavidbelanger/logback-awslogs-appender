@@ -111,19 +111,20 @@ class AWSLogsStub {
             events = sortedEvents;
         }
 
+        ArrayList<InputLogEvent> correctedEvents = new ArrayList<InputLogEvent>(events.size());
         for (InputLogEvent event : events) {
             if (lastTimestamp != null && event.timestamp() < lastTimestamp) {
-                events.remove(event);
-                events.add(event.toBuilder()
+                correctedEvents.add(event.toBuilder()
                     .timestamp(lastTimestamp)
                     .build());
             } else {
+                correctedEvents.add(event);
                 lastTimestamp = event.timestamp();
             }
         }
-        AwsLogsMetricsHolder.get().incrementLogEvents(events.size());
+        AwsLogsMetricsHolder.get().incrementLogEvents(correctedEvents.size());
         AwsLogsMetricsHolder.get().incrementPutLog();
-        logPreparedEvents(events);
+        logPreparedEvents(correctedEvents);
     }
 
     private void logPreparedEvents(Collection<InputLogEvent> events) {
