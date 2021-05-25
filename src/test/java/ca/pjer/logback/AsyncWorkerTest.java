@@ -5,8 +5,8 @@ import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.LoggingEvent;
 import ch.qos.logback.core.layout.EchoLayout;
-import com.amazonaws.services.logs.model.InputLogEvent;
 import org.junit.Test;
+import software.amazon.awssdk.services.cloudwatchlogs.model.InputLogEvent;
 
 import java.util.Collection;
 import java.util.UUID;

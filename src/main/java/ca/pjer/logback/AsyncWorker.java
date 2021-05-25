@@ -12,10 +12,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import ca.pjer.logback.metrics.AwsLogsMetricsHolder;
-import com.amazonaws.services.logs.model.InputLogEvent;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.spi.ILoggingEvent;
+import software.amazon.awssdk.services.cloudwatchlogs.model.InputLogEvent;
 
 class AsyncWorker extends Worker implements Runnable {
 
