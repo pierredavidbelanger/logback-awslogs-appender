@@ -27,6 +27,8 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     private long maxBlockTimeMillis = 5000;
     private int retentionTimeDays = 0;
     private boolean verbose = true;
+    private String accessKeyId;
+    private String secretAccessKey;
 
     private AWSLogsStub awsLogsStub;
     private Worker worker;
@@ -141,7 +143,9 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     }
 
     @SuppressWarnings({"unused", "WeakerAccess"})
-    public int getRetentionTimeDays() { return retentionTimeDays; }
+    public int getRetentionTimeDays() {
+        return retentionTimeDays;
+    }
 
     @SuppressWarnings({"unused", "WeakerAccess"})
     public void setRetentionTimeDays(int days) {
@@ -182,6 +186,14 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
         this.verbose = verbose;
     }
 
+    public void setAccessKeyId(String accessKeyId) {
+        this.accessKeyId = accessKeyId;
+    }
+
+    public void setSecretAccessKey(String secretAccessKey) {
+        this.secretAccessKey = secretAccessKey;
+    }
+
     @Override
     public synchronized void start() {
         if (!isStarted()) {
@@ -202,7 +214,8 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
                 }
             }
             if (this.awsLogsStub == null) {
-                this.awsLogsStub = new AWSLogsStub(logGroupName, logStreamName, logRegion, retentionTimeDays, cloudWatchEndpoint, verbose);
+                this.awsLogsStub = new AWSLogsStub(logGroupName, logStreamName, logRegion, retentionTimeDays
+                        , cloudWatchEndpoint, verbose, accessKeyId, secretAccessKey);
                 this.awsLogsStub.start();
             }
             if (this.worker == null) {
