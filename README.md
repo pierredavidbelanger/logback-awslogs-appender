@@ -107,45 +107,48 @@ A real life `logback.xml` would probably look like this (when all options are sp
 
     <!-- The actual AwsLogsAppender (asynchronous mode because of maxFlushTimeMillis > 0) -->
     <appender name="ASYNC_AWS_LOGS" class="ca.pjer.logback.AwsLogsAppender">
-    
+
         <!-- Send only WARN and above -->
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
             <level>WARN</level>
         </filter>
-        
+
         <!-- Nice layout pattern -->
         <layout>
             <pattern>%d{yyyyMMdd'T'HHmmss} %thread %level %logger{15} %msg%n</pattern>
         </layout>
-        
+
         <!-- Hardcoded Log Group Name -->
         <logGroupName>/com/acme/myapp</logGroupName>
-        
+
         <!-- Log Stream Name UUID Prefix -->
         <logStreamUuidPrefix>mystream/</logStreamUuidPrefix>
-        
+
         <!-- Hardcoded AWS region -->
         <!-- So even when running inside an AWS instance in us-west-1, logs will go to us-west-2 -->
         <logRegion>us-west-2</logRegion>
-        
+
         <!-- Maximum number of events in each batch (50 is the default) -->
         <!-- will flush when the event queue has 50 elements, even if still in quiet time (see maxFlushTimeMillis) -->
         <maxBatchLogEvents>50</maxBatchLogEvents>
-        
+
         <!-- Maximum quiet time in millisecond (0 is the default) -->
         <!-- will flush when met, even if the batch size is not met (see maxBatchLogEvents) -->
         <maxFlushTimeMillis>30000</maxFlushTimeMillis>
-        
+
         <!-- Maximum block time in millisecond (5000 is the default) -->
         <!-- when > 0: this is the maximum time the logging thread will wait for the logger, -->
         <!-- when == 0: the logging thread will never wait for the logger, discarding events while the queue is full -->
         <maxBlockTimeMillis>5000</maxBlockTimeMillis>
-        
+
         <!-- Retention value for log groups, 0 for infinite see -->
         <!-- https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutRetentionPolicy.html for other -->
         <!-- possible values -->
-        
         <retentionTimeDays>0</retentionTimeDays>
+
+        <!-- Use custom credential instead of DefaultCredentialsProvider -->
+        <accessKeyId>YOUR_ACCESS_KEY_ID</accessKeyId>
+        <secretAccessKey>YOUR_SECRET_ACCESS_KEY</secretAccessKey>
     </appender>
 
     <!-- A console output -->

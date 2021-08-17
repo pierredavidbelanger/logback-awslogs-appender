@@ -1,6 +1,9 @@
 package ca.pjer.logback;
 
 import ca.pjer.logback.metrics.AwsLogsMetricsHolder;
+import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClient;
 import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClientBuilder;
@@ -17,21 +20,25 @@ class AWSLogsStub {
     private final String logRegion;
     private final String cloudWatchEndpoint;
     private final boolean verbose;
+    private final String accessKeyId;
+    private final String secretAccessKey;
     private String sequenceToken;
     private Long lastTimestamp;
     private int retentionTimeInDays;
 
     private final Lazy<CloudWatchLogsClient> lazyAwsLogs = new Lazy<>();
 
-    AWSLogsStub(String logGroupName, String logStreamName, String logRegion, int retentionTimeInDays, String cloudWatchEndpoint, boolean verbose) {
+    AWSLogsStub(String logGroupName, String logStreamName, String logRegion, int retentionTimeInDays
+            , String cloudWatchEndpoint, boolean verbose, String accessKeyId, String secretAccessKey) {
         this.logGroupName = logGroupName;
         this.logStreamName = logStreamName;
         this.logRegion = logRegion;
         this.retentionTimeInDays = retentionTimeInDays;
         this.cloudWatchEndpoint = cloudWatchEndpoint;
         this.verbose = verbose;
+        this.accessKeyId = accessKeyId;
+        this.secretAccessKey = secretAccessKey;
     }
-
 
     private CloudWatchLogsClient awsLogs() {
         return lazyAwsLogs.getOrCompute(() -> {
@@ -46,13 +53,19 @@ class AWSLogsStub {
                     builder = builder.endpointOverride(new URI(cloudWatchEndpoint));
                 } catch (URISyntaxException e) {
                     if (verbose) {
-                        System.out.println("Invalid endpoint endpoint URL: "  + cloudWatchEndpoint);
+                        System.out.println("Invalid endpoint endpoint URL: " + cloudWatchEndpoint);
                     }
                 }
             }
 
             if (Objects.nonNull(logRegion)) {
                 builder = builder.region(Region.of(logRegion));
+            }
+
+            if (Objects.nonNull(this.accessKeyId) && Objects.nonNull(this.secretAccessKey)) {
+                AwsCredentialsProvider credentialProvider = StaticCredentialsProvider.create(
+                        AwsBasicCredentials.create(this.accessKeyId, this.secretAccessKey));
+                builder.credentialsProvider(credentialProvider);
             }
 
             CloudWatchLogsClient awsLogs = builder.build();
@@ -66,7 +79,7 @@ class AWSLogsStub {
             awsLogs.createLogGroup(CreateLogGroupRequest.builder()
                     .logGroupName(logGroupName)
                     .build());
-            if(retentionTimeInDays > 0) {
+            if (retentionTimeInDays > 0) {
                 awsLogs.putRetentionPolicy(PutRetentionPolicyRequest.builder()
                         .logGroupName(logGroupName)
                         .retentionInDays(retentionTimeInDays)
@@ -115,8 +128,8 @@ class AWSLogsStub {
         for (InputLogEvent event : events) {
             if (lastTimestamp != null && event.timestamp() < lastTimestamp) {
                 correctedEvents.add(event.toBuilder()
-                    .timestamp(lastTimestamp)
-                    .build());
+                        .timestamp(lastTimestamp)
+                        .build());
             } else {
                 correctedEvents.add(event);
                 lastTimestamp = event.timestamp();
