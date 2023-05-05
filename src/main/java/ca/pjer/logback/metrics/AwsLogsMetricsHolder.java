@@ -1,10 +1,10 @@
 package ca.pjer.logback.metrics;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class AwsLogsMetricsHolder {
     private static AwsLogsMetrics NULL = new AwsLogsMetrics() {
-
         @Override
         public void incrementLostCount() {
 
@@ -41,13 +41,25 @@ public class AwsLogsMetricsHolder {
         }
     };
 
-    private static AtomicReference<AwsLogsMetrics> INSTANCE = new AtomicReference<>(NULL);
+    public static AtomicReference<AwsLogsMetrics> INSTANCE = new AtomicReference<>(NULL);
+    public static AtomicBoolean DESIRED = new AtomicBoolean();
+
 
     public static AwsLogsMetrics get() {
         return INSTANCE.get();
     }
 
+    @SuppressWarnings("unused")
     public static void set(AwsLogsMetrics metrics) {
         INSTANCE.set(metrics);
+    }
+
+    public static void setDesired() {
+        DESIRED.set(true);
+    }
+
+    @SuppressWarnings("unused")
+    public static boolean isDesired() {
+        return DESIRED.get();
     }
 }

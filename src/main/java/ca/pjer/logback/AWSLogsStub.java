@@ -45,7 +45,13 @@ class AWSLogsStub {
 
     synchronized void stop() {
         try {
-            awsLogs().close();
+            AwsLogsClient awsLogsClient = lazyAwsLogsClient.get();
+            if (awsLogsClient != null) {
+                if (properties.isVerbose()) {
+                    System.out.println("Closing AWSLogs Client");
+                }
+                awsLogsClient.close();
+            }
         } catch (Exception e) {
             // ignore
         }

@@ -28,7 +28,7 @@ Thank you for your help:
             <version>1.7.21</version>
         </dependency>
         <dependency>
-            <groupId>ca.pjer</groupId>
+            <groupId>io.github.dnovitski</groupId>
             <artifactId>logback-awslogs-appender</artifactId>
             <version>1.7.0</version>
         </dependency>

@@ -1,6 +1,7 @@
 package ca.pjer.logback;
 
 import ca.pjer.logback.client.AwsLogsClientProperties;
+import ca.pjer.logback.metrics.AwsLogsMetricsHolder;
 import ca.pjer.logback.tokenisation.TokenUtility;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.Layout;
@@ -42,16 +43,13 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     private Worker worker;
     private final Map<String, Supplier<String>> logStreamNameTokenSuppliers = new HashMap<>();
 
-    private static volatile boolean created;
+    private static String startupUUID = UUID.randomUUID().toString();
+    private static String startupDateTime = new SimpleDateFormat("yyyyMMdd'T'HHmmss").format(new Date());
 
     {
-        logStreamNameTokenSuppliers.put("uuid", () -> UUID.randomUUID().toString());
-        logStreamNameTokenSuppliers.put("datetime", () -> new SimpleDateFormat("yyyyMMdd'T'HHmmss").format(new Date()));
-        created = true;
-    }
-
-    public static boolean isCreated() {
-        return created;
+        logStreamNameTokenSuppliers.put("uuid", () -> startupUUID);
+        logStreamNameTokenSuppliers.put("datetime", () -> startupDateTime);
+        AwsLogsMetricsHolder.setDesired();
     }
 
     @SuppressWarnings({"unused", "WeakerAccess"})
@@ -143,7 +141,6 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     }
 
     @SuppressWarnings({"unused", "WeakerAccess"})
-
     public long getMaxFlushTimeMillis() {
         return maxFlushTimeMillis;
     }
@@ -294,9 +291,9 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
                 if (logStreamNamePattern != null) {
                     logStreamName = TokenUtility.replaceTokens(logStreamNamePattern, logStreamNameTokenSuppliers);
                 } else if (logStreamUuidPrefix != null) {
-                    logStreamName = String.format("%s%s", logStreamUuidPrefix, UUID.randomUUID().toString());
+                    logStreamName = String.format("%s%s", logStreamUuidPrefix, startupUUID);
                 } else {
-                    logStreamName = new SimpleDateFormat("yyyyMMdd'T'HHmmss").format(new Date());
+                    logStreamName = startupDateTime;
                     addStatus(new WarnStatus("No logStreamName, default to " + logStreamName, this));
                 }
             }
