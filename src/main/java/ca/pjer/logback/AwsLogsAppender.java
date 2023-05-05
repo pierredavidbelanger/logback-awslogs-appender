@@ -1,5 +1,7 @@
 package ca.pjer.logback;
 
+import ca.pjer.logback.client.AwsLogsClientProperties;
+import ca.pjer.logback.tokenisation.TokenUtility;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.Layout;
 import ch.qos.logback.core.UnsynchronizedAppenderBase;
@@ -9,9 +11,9 @@ import ch.qos.logback.core.status.WarnStatus;
 
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Objects;
-import java.util.UUID;
+import java.time.ZoneId;
+import java.util.*;
+import java.util.function.Supplier;
 
 public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     private Layout<ILoggingEvent> layout;
@@ -19,9 +21,10 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
 
     private String logGroupName;
     private String logStreamName;
+    private String logStreamNamePattern;
     private String logStreamUuidPrefix;
     private String logRegion;
-    private String cloudWatchEndpoint;
+    private String endpoint;
     private int maxBatchLogEvents = 50;
     private long maxFlushTimeMillis = 0;
     private long maxBlockTimeMillis = 5000;
@@ -29,13 +32,21 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     private boolean verbose = true;
     private String accessKeyId;
     private String secretAccessKey;
+    private String bucketName;
+    private String bucketPath;
+    private String logFormatType;
+    private String logOutputType;
+    private String timezone;
 
     private AWSLogsStub awsLogsStub;
     private Worker worker;
+    private final Map<String, Supplier<String>> logStreamNameTokenSuppliers = new HashMap<>();
 
     private static volatile boolean created;
 
     {
+        logStreamNameTokenSuppliers.put("uuid", () -> UUID.randomUUID().toString());
+        logStreamNameTokenSuppliers.put("datetime", () -> new SimpleDateFormat("yyyyMMdd'T'HHmmss").format(new Date()));
         created = true;
     }
 
@@ -93,6 +104,16 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
         if (isNotBlank(logStreamUuidPrefix)) {
             this.logStreamUuidPrefix = logStreamUuidPrefix;
         }
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public String getLogStreamNamePattern() {
+        return logStreamNamePattern;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setLogStreamNamePattern(String logStreamNamePattern) {
+        this.logStreamNamePattern = logStreamNamePattern;
     }
 
     @SuppressWarnings({"unused", "WeakerAccess"})
@@ -166,13 +187,25 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
 
     @SuppressWarnings({"unused", "WeakerAccess"})
     public String getCloudWatchEndpoint() {
-        return cloudWatchEndpoint;
+        return endpoint;
     }
 
     @SuppressWarnings({"unused", "WeakerAccess"})
-    public void setCloudWatchEndpoint(String cloudWatchEndpoint) {
-        if (isNotBlank(cloudWatchEndpoint)) {
-            this.cloudWatchEndpoint = cloudWatchEndpoint;
+    public void setCloudWatchEndpoint(String endpoint) {
+        if (isNotBlank(endpoint)) {
+            this.endpoint = endpoint;
+        }
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public String getEndpoint() {
+        return endpoint;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setEndpoint(String endpoint) {
+        if (isNotBlank(endpoint)) {
+            this.endpoint = endpoint;
         }
     }
 
@@ -186,12 +219,64 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
         this.verbose = verbose;
     }
 
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public void setAccessKeyId(String accessKeyId) {
         this.accessKeyId = accessKeyId;
     }
 
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public void setSecretAccessKey(String secretAccessKey) {
         this.secretAccessKey = secretAccessKey;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public String getBucketName() {
+        return bucketName;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setBucketName(String bucketName) {
+        this.bucketName = bucketName;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public String getBucketPath() {
+        return bucketPath;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setBucketPath(String bucketPath) {
+        this.bucketPath = bucketPath;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public String getLogFormatType() {
+        return logFormatType;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setLogFormatType(String logFormatType) {
+        this.logFormatType = logFormatType;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public String getLogOutputType() {
+        return logOutputType;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setLogOutputType(String logOutputType) {
+        this.logOutputType = logOutputType;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public String getTimezone() {
+        return timezone;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setTimezone(String timezone) {
+        this.timezone = timezone;
     }
 
     @Override
@@ -206,16 +291,20 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
                 addStatus(new WarnStatus("No logGroupName, default to " + logGroupName, this));
             }
             if (logStreamName == null) {
-                if (logStreamUuidPrefix != null) {
+                if (logStreamNamePattern != null) {
+                    logStreamName = TokenUtility.replaceTokens(logStreamNamePattern, logStreamNameTokenSuppliers);
+                } else if (logStreamUuidPrefix != null) {
                     logStreamName = String.format("%s%s", logStreamUuidPrefix, UUID.randomUUID().toString());
                 } else {
                     logStreamName = new SimpleDateFormat("yyyyMMdd'T'HHmmss").format(new Date());
                     addStatus(new WarnStatus("No logStreamName, default to " + logStreamName, this));
                 }
             }
+
+            ZoneId zoneId = (timezone == null) ? ZoneId.systemDefault() : ZoneId.of(timezone);
+
             if (this.awsLogsStub == null) {
-                this.awsLogsStub = new AWSLogsStub(logGroupName, logStreamName, logRegion, retentionTimeDays
-                        , cloudWatchEndpoint, verbose, accessKeyId, secretAccessKey);
+                this.awsLogsStub = new AWSLogsStub(new AwsLogsClientProperties(logGroupName, logStreamName, logRegion, retentionTimeDays, endpoint, verbose, accessKeyId, secretAccessKey, bucketName, bucketPath, logFormatType, logOutputType, zoneId));
                 this.awsLogsStub.start();
             }
             if (this.worker == null) {

@@ -7,7 +7,7 @@
 
     <groupId>ca.pjer</groupId>
     <artifactId>logback-awslogs-appender</artifactId>
-    <version>1.6.0</version>
+    <version>1.7.0</version>
 
     <name>Logback AWSLogs appender</name>
     <description>An Amazon Web Services (AWS) Logs (CloudWatch) appender for Logback</description>
@@ -60,6 +60,11 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>cloudwatchlogs</artifactId>
+            <version>2.16.65</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
             <version>2.16.65</version>
         </dependency>
         <dependency>
