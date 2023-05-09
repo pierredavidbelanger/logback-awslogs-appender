@@ -28,7 +28,7 @@ public class AwsLogsCloudWatchClient implements AwsLogsClient {
                 builder = builder.endpointOverride(new URI(properties.getEndpoint()));
             } catch (URISyntaxException e) {
                 if (properties.isVerbose()) {
-                    System.out.println("Invalid endpoint endpoint URL: " + properties.getEndpoint());
+                    System.out.println("Invalid endpoint URL: " + properties.getEndpoint());
                 }
             }
         }
