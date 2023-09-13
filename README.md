@@ -2,13 +2,18 @@
 
 # Logback AWSLogs appender
 
-An [Amazon Web Services](https://aws.amazon.com) [CloudWatch Logs](http://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/Welcome.html) [appender](http://logback.qos.ch/manual/appenders.html) for [Logback](http://logback.qos.ch/).
+An [appender](http://logback.qos.ch/manual/appenders.html) for [Logback](http://logback.qos.ch/) to ship logs to [Amazon Web Services](https://aws.amazon.com).
+
+Supports shipping to:
+* [CloudWatch Logs](http://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/Welcome.html)
+* [S3 buckets](https://docs.aws.amazon.com/AmazonS3/latest/API/Welcome.html)
 
 Thank you for your help:
 - [ivanfmartinez](https://github.com/ivanfmartinez)
 - [jochenschneider](https://github.com/jochenschneider)
 - [malkusch](https://github.com/malkusch)
 - [robertoestivill](https://github.com/robertoestivill)
+- [dnovitski](https://github.com/dnovitski)
 
 ## Quick start
 
@@ -25,7 +30,7 @@ Thank you for your help:
         <dependency>
             <groupId>ca.pjer</groupId>
             <artifactId>logback-awslogs-appender</artifactId>
-            <version>1.4.0</version>
+            <version>1.7.2</version>
         </dependency>
     </dependencies>
 </project>
@@ -88,7 +93,7 @@ logger.info("HelloWorld");
 
 ## More configurations
 
-It may be worth quoting this from _AWS_, beacause this is why we need to have unique `logStreamName`:
+It may be worth quoting this from _AWS_, because this is why we need to have unique `logStreamName`:
 
 > When you have two processes attempting to perform the PutLogEvents API call to the same log stream, there is a chance that one will pass and one will fail because of the sequence token provided for that same log stream. Because of the sequencing of these events maintained in the log stream, you cannot have concurrently running processes pushing to the same log-stream.
 
@@ -124,6 +129,12 @@ A real life `logback.xml` would probably look like this (when all options are sp
         <!-- Log Stream Name UUID Prefix -->
         <logStreamUuidPrefix>mystream/</logStreamUuidPrefix>
 
+        <!-- Or alternatively, Log Stream Name via pattern generated upon application startup -->
+        <!-- Supported tokens are:
+          %{uuid} - Random generated UUID
+          %{datetime} - Current date in yyyymmddhhmmss format -->
+        <logStreamNamePattern>mystream/%{uuid}</logStreamNamePattern>
+ 
         <!-- Hardcoded AWS region -->
         <!-- So even when running inside an AWS instance in us-west-1, logs will go to us-west-2 -->
         <logRegion>us-west-2</logRegion>
@@ -149,6 +160,34 @@ A real life `logback.xml` would probably look like this (when all options are sp
         <!-- Use custom credential instead of DefaultCredentialsProvider -->
         <accessKeyId>YOUR_ACCESS_KEY_ID</accessKeyId>
         <secretAccessKey>YOUR_SECRET_ACCESS_KEY</secretAccessKey>
+        
+        <!-- Alternatively, to upload logs to S3 buckets, configure a bucket name and bucket path -->
+        <bucketName>mybucket</bucketName>
+        <!-- Supported tokens are:
+            %{log_group} - The log group specified above
+            %{log_stream} - The log stream specified above
+            %{date} - Current date in yyyy-mm-dd format
+            %{uuid} - Random generated UUID, unique for each call
+            %{millis} - Current system timestamp in millis
+            %{nanos} - Current system timestamp in nanos
+            %{counter} - Atomic counter incremented each call
+            
+            Log files uploaded to S3 will be JSON files using "Records" JSON array format supported by Filebeat. 
+        -->
+        <bucketPath>logs/log_group=%{log_group}/date=%{date}/log_stream=%{log_stream}/%{counter}.json.gz</bucketPath>
+      
+        <!-- Use 's3' to upload to S3 buckets, otherwise 'cloudwatch' is the default -->
+        <logOutputType>s3</logOutputType>
+
+        <!-- Use 'json' to specify input logs are in json format, 'text' for plaintext, and nothing to autodetect when needed (default) --> 
+        <logFormatType>json</logFormatType>
+
+        <!-- Use 'json_hive' to concatenate each log event as a single line json object, 'json_array' for [ {...} , ... ]', or json_records_array' for { "Records" : [ {...}, ... ] }  -->
+        <s3FileFormat>json_hive</s3FileFormat>
+
+        <!-- Specify GZIP compression level, default 1. Only used if the bucketPath ends with .gz -->
+        <s3FileCompressionLevel>1</s3FileCompressionLevel>
+
     </appender>
 
     <!-- A console output -->
