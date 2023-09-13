@@ -37,6 +37,8 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     private String bucketPath;
     private String logFormatType;
     private String logOutputType;
+    private String s3FileFormat;
+    private Integer s3FileCompressionLevel;
     private String timezone;
 
     private AWSLogsStub awsLogsStub;
@@ -267,6 +269,26 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
     }
 
     @SuppressWarnings({"unused", "WeakerAccess"})
+    public String getS3FileFormat() {
+        return s3FileFormat;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setS3FileFormat(String s3FileFormat) {
+        this.s3FileFormat = s3FileFormat;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public Integer getS3FileCompressionLevel() {
+        return s3FileCompressionLevel;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
+    public void setS3FileCompressionLevel(Integer s3FileCompressionLevel) {
+        this.s3FileCompressionLevel = s3FileCompressionLevel;
+    }
+
+    @SuppressWarnings({"unused", "WeakerAccess"})
     public String getTimezone() {
         return timezone;
     }
@@ -301,7 +323,7 @@ public class AwsLogsAppender extends UnsynchronizedAppenderBase<ILoggingEvent> {
             ZoneId zoneId = (timezone == null) ? ZoneId.systemDefault() : ZoneId.of(timezone);
 
             if (this.awsLogsStub == null) {
-                this.awsLogsStub = new AWSLogsStub(new AwsLogsClientProperties(logGroupName, logStreamName, logRegion, retentionTimeDays, endpoint, verbose, accessKeyId, secretAccessKey, bucketName, bucketPath, logFormatType, logOutputType, zoneId));
+                this.awsLogsStub = new AWSLogsStub(new AwsLogsClientProperties(logGroupName, logStreamName, logRegion, retentionTimeDays, endpoint, verbose, accessKeyId, secretAccessKey, bucketName, bucketPath, logFormatType, logOutputType, zoneId, s3FileFormat, s3FileCompressionLevel));
                 this.awsLogsStub.start();
             }
             if (this.worker == null) {

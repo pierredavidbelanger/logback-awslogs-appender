@@ -16,8 +16,10 @@ public class AwsLogsClientProperties {
     private final String bucketName;
     private final String bucketPath;
     private final ZoneId zoneId;
+    private final String s3FileFormat;
+    private final Integer s3FileCompressionLevel;
 
-    public AwsLogsClientProperties(String logGroupName, String logStreamName, String logRegion, int retentionTimeInDays, String cloudWatchEndpoint, boolean verbose, String accessKeyId, String secretAccessKey, String bucketName, String bucketPath, String logFormatType, String logOutputType, ZoneId zoneId) {
+    public AwsLogsClientProperties(String logGroupName, String logStreamName, String logRegion, int retentionTimeInDays, String cloudWatchEndpoint, boolean verbose, String accessKeyId, String secretAccessKey, String bucketName, String bucketPath, String logFormatType, String logOutputType, ZoneId zoneId, String s3FileFormat, Integer s3FileCompressionLevel) {
         this.logGroupName = logGroupName;
         this.logStreamName = logStreamName;
         this.logRegion = logRegion;
@@ -31,6 +33,8 @@ public class AwsLogsClientProperties {
         this.logFormatType = logFormatType;
         this.logOutputType = logOutputType;
         this.zoneId = zoneId;
+        this.s3FileFormat = s3FileFormat;
+        this.s3FileCompressionLevel = s3FileCompressionLevel;
     }
 
     public String getLogGroupName() {
@@ -45,10 +49,12 @@ public class AwsLogsClientProperties {
         return logRegion;
     }
 
+    // Specifies the input log event format, eg text, json, or autodetect (null)
     public String getLogFormatType() {
         return logFormatType;
     }
 
+    // Specifies the output type: where to ship logs to, eg s3 or cloudwatch
     public String getLogOutputType() {
         return logOutputType;
     }
@@ -83,5 +89,14 @@ public class AwsLogsClientProperties {
 
     public ZoneId getZoneId() {
         return zoneId;
+    }
+
+    // Specifies the s3 file format, eg json records array, json hive
+    public String getS3FileFormat() {
+        return s3FileFormat;
+    }
+
+    public Integer getS3FileCompressionLevel() {
+        return s3FileCompressionLevel == null ? 1 : s3FileCompressionLevel;
     }
 }

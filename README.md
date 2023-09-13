@@ -28,9 +28,9 @@ Thank you for your help:
             <version>1.7.21</version>
         </dependency>
         <dependency>
-            <groupId>io.github.dnovitski</groupId>
+            <groupId>ca.pjer</groupId>
             <artifactId>logback-awslogs-appender</artifactId>
-            <version>1.7.0</version>
+            <version>1.7.2</version>
         </dependency>
     </dependencies>
 </project>
@@ -174,13 +174,20 @@ A real life `logback.xml` would probably look like this (when all options are sp
             
             Log files uploaded to S3 will be JSON files using "Records" JSON array format supported by Filebeat. 
         -->
-        <bucketPath>logs/log_group=%{log_group}/date=%{date}/log_stream=%{log_stream}/%{counter}.log</bucketPath>
+        <bucketPath>logs/log_group=%{log_group}/date=%{date}/log_stream=%{log_stream}/%{counter}.json.gz</bucketPath>
       
         <!-- Use 's3' to upload to S3 buckets, otherwise 'cloudwatch' is the default -->
         <logOutputType>s3</logOutputType>
 
-        <!-- Use 'json' to specify logs are in json format, 'text' for plaintext, and nothing to autodetect when needed (default) --> 
-        <logFormatType>text</logFormatType>
+        <!-- Use 'json' to specify input logs are in json format, 'text' for plaintext, and nothing to autodetect when needed (default) --> 
+        <logFormatType>json</logFormatType>
+
+        <!-- Use 'json_hive' to concatenate each log event as a single line json object, 'json_array' for [ {...} , ... ]', or json_records_array' for { "Records" : [ {...}, ... ] }  -->
+        <s3FileFormat>json_hive</s3FileFormat>
+
+        <!-- Specify GZIP compression level, default 1. Only used if the bucketPath ends with .gz -->
+        <s3FileCompressionLevel>1</s3FileCompressionLevel>
+
     </appender>
 
     <!-- A console output -->
